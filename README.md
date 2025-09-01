@@ -20,4 +20,25 @@ python3 -m http.server --directory . 8080
 
 ## Deploying
 
-Choose a static host (Vercel, Netlify, GitHub Pages, Cloudflare Pages). Create a CNAME for `th3scr1b3.runeflow.xyz` to the host’s provided domain. See instructions in the commit message or ask me to set it up.
+### Vercel (recommended)
+
+1) Add this repo to Vercel
+   - Import the repo in Vercel Dashboard (or use `vercel` CLI if you’re authenticated)
+   - Framework preset: “Other” (static)
+   - Output dir: `.` (root) — we serve index.html directly
+   - The included `vercel.json` config ships the site as a static deployment.
+
+2) Set custom domain: `th3scr1b3.runeflow.xyz`
+   - In Vercel Project → Settings → Domains → Add `th3scr1b3.runeflow.xyz`
+
+3) DNS record at your DNS host for runeflow.xyz
+   - Type: CNAME
+   - Name/Host: `th3scr1b3`
+   - Value/Target: `cname.vercel-dns.com`
+   - TTL: 300 (or default)
+
+4) Wait for Vercel to issue the certificate (a few minutes), then visit:
+   - https://th3scr1b3.runeflow.xyz
+
+### Netlify / GH Pages / Cloudflare Pages
+The app is a plain static site. Any static host works — set the publish directory to the repo root and configure the domain with a CNAME at your DNS host.

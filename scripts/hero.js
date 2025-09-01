@@ -1,6 +1,6 @@
 import { initDraggablePlayer } from './draggablePlayer.js';
 import { initWaveform } from './waveform.js';
-import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getTracksForUserId } from './audius.js';
+import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getTracksForUserId, getAllTracksForUserId } from './audius.js';
 
 const APP_NAME = 'th3scr1b3-music-hub';
 // Set your Audius handle here. If this handle doesn't exist, the UI will show placeholders.
@@ -164,14 +164,14 @@ async function renderTracksGrid(container, handle, player) {
     const user = await getUserByHandle(handle, APP_NAME);
     const userId = user?.id || user?.data?.id;
     if (!userId) throw new Error('User not found');
-    const tracks = await getTracksForUserId(userId, APP_NAME, 24);
+    const tracks = await getAllTracksForUserId(userId, APP_NAME);
     if (!tracks.length) {
       container.textContent = 'No tracks found';
       return;
     }
     const userPic = (user?.profile_picture?.['150x150']) || (user?.profile_picture?.['480x480']) || '';
-    // Keep reference for click handling
-    const list = tracks.map((t) => ({
+    // Build list and support reshuffle
+    let list = tracks.map((t) => ({
       id: t.id || t.track_id || t.trackId,
       title: t.title || 'Untitled',
       duration: t.duration || t.duration_ms/1000 || null,
@@ -179,48 +179,55 @@ async function renderTracksGrid(container, handle, player) {
       artworkUrl: getArtworkUrl(t, '150x150') || getArtworkUrl(t, '480x480') || userPic
     }));
 
-    // Build tiles
-    const frag = document.createDocumentFragment();
-    list.forEach((t, idx) => {
-      const tile = document.createElement('div');
-      tile.className = 'tile';
-      tile.setAttribute('tabindex', '0');
-      tile.dataset.index = String(idx);
+    function buildTiles() {
+      // rebuild tiles from current list order
+      container.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      list.forEach((t, idx) => {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.setAttribute('tabindex', '0');
+        tile.dataset.index = String(idx);
 
-      const art = document.createElement('div');
-      art.className = 'tile__art';
-      if (t.artworkUrl) {
-        const img = document.createElement('img');
-        img.src = t.artworkUrl;
-        img.alt = `${t.title} cover`;
-        art.appendChild(img);
-      }
+        const art = document.createElement('div');
+        art.className = 'tile__art';
+        if (t.artworkUrl) {
+          const img = document.createElement('img');
+          img.src = t.artworkUrl;
+          img.alt = `${t.title} cover`;
+          art.appendChild(img);
+        }
 
-      const info = document.createElement('div');
-      info.className = 'tile__info';
+        const info = document.createElement('div');
+        info.className = 'tile__info';
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'tile__title';
-      titleEl.textContent = t.title;
+        const titleEl = document.createElement('div');
+        titleEl.className = 'tile__title';
+        titleEl.textContent = t.title;
 
-      const meta = document.createElement('div');
-      meta.className = 'tile__meta';
-      meta.textContent = formatTime(t.duration);
+        const meta = document.createElement('div');
+        meta.className = 'tile__meta';
+        meta.textContent = formatTime(t.duration);
 
-      const btn = document.createElement('button');
-      btn.className = 'tile__play';
-      btn.setAttribute('aria-label', `Play ${t.title}`);
-      btn.textContent = 'Play';
+        const btn = document.createElement('button');
+        btn.className = 'tile__play';
+        btn.setAttribute('aria-label', `Play ${t.title}`);
+        btn.textContent = 'Play';
 
-      info.appendChild(titleEl);
-      info.appendChild(meta);
-      info.appendChild(btn);
+        info.appendChild(titleEl);
+        info.appendChild(meta);
+        info.appendChild(btn);
 
-      tile.appendChild(art);
-      tile.appendChild(info);
-      frag.appendChild(tile);
-    });
-    container.appendChild(frag);
+        tile.appendChild(art);
+        tile.appendChild(info);
+        frag.appendChild(tile);
+      });
+      container.appendChild(frag);
+    }
+
+    // initial random order
+    shuffle(list);
+    buildTiles();
 
     // Momentum scrolling & nav
     const leftBtn = document.getElementById('tracks-left');
@@ -259,6 +266,18 @@ async function renderTracksGrid(container, handle, player) {
     rightBtn.onclick = () => {
       container.scrollBy({ left: container.clientWidth * 0.8, behavior: 'smooth' });
     };
+
+    // Shuffle button wiring
+    const shuffleBtn = document.getElementById('tracks-shuffle');
+    if (shuffleBtn) {
+      shuffleBtn.style.display = 'flex';
+      shuffleBtn.onclick = () => {
+        shuffle(list);
+        buildTiles();
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+        updateNav();
+      };
+    }
 
     // Delegate play actions
     container.addEventListener('click', async (e) => {

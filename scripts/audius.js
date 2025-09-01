@@ -70,6 +70,31 @@ export async function getTracksForUserId(userId, appName, limit = 12) {
   return Array.isArray(tracks) ? tracks : [];
 }
 
+// Fetch all tracks for a user by paginating through results
+export async function getAllTracksForUserId(userId, appName) {
+  const pageSize = 50; // reasonable page size
+  let offset = 0;
+  const all = [];
+  while (true) {
+    let base = await pickDiscoveryNode();
+    let url = `${base}/v1/users/${encodeURIComponent(userId)}/tracks?app_name=${encodeURIComponent(appName)}&limit=${encodeURIComponent(pageSize)}&offset=${encodeURIComponent(offset)}`;
+    let res = await fetch(url);
+    if (!res.ok) {
+      base = await pickDiscoveryNode();
+      url = `${base}/v1/users/${encodeURIComponent(userId)}/tracks?app_name=${encodeURIComponent(appName)}&limit=${encodeURIComponent(pageSize)}&offset=${encodeURIComponent(offset)}`;
+      res = await fetch(url);
+    }
+    if (!res.ok) throw new Error(`Audius tracks fetch failed: ${res.status}`);
+    const json = await res.json();
+    const tracks = json?.data || json;
+    if (!Array.isArray(tracks) || tracks.length === 0) break;
+    all.push(...tracks);
+    if (tracks.length < pageSize) break;
+    offset += tracks.length;
+  }
+  return all;
+}
+
 export async function getStreamUrlForTrack(track, appName) {
   const base = await pickDiscoveryNode();
   // Some responses include stream_url; otherwise we build from id
