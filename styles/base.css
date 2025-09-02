@@ -68,11 +68,43 @@
     font-size: clamp(1.2rem, 3.4vw, 3rem);
     color: rgba(230, 237, 243, 0.10);
     white-space: nowrap;
-    /* Two animations: opacity pulse and horizontal drift */
+    /* Default background mode: pulse + drift */
     animation-name: fadeOpacity, driftX;
     animation-duration: 8s, var(--drift-dur, 12s);
     animation-iteration-count: infinite, infinite;
     animation-timing-function: ease-in-out, ease-in-out;
+  }
+  /* Rainfall variant overrides animations to fall from top and fade out */
+  .stats-bg__item--rain {
+    top: 0; bottom: auto; /* position relative to top */
+    left: 0; /* actual x via left% inline */
+    /* Typography: slimmer and smaller */
+    font-family: "Helvetica Neue", "Arial Narrow", Arial, system-ui, sans-serif;
+    font-weight: 600;
+    font-stretch: 85%; /* browsers supporting font-stretch */
+    letter-spacing: 0.02em;
+    line-height: 1;
+    font-size: clamp(0.8rem, 2.2vw, 1.8rem);
+
+    /* Neon gradient fill */
+    color: transparent;
+    background: linear-gradient(135deg, #00eaff 0%, #ff00ff 50%, #ffe600 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    /* Glow only (no black stroke) */
+    text-shadow:
+      0 0 2px #ffffff,          /* subtle inner white edge */
+      0 0 8px rgba(0, 234, 255, 0.9),
+      0 0 18px rgba(255, 0, 255, 0.6);
+
+    animation-name: rainOpacity, rainFall;
+    animation-duration: var(--dur, 10s), var(--dur, 10s);
+    animation-delay: var(--delay, 0s), var(--delay, 0s);
+    animation-iteration-count: 1, 1;
+    animation-timing-function: ease-in-out, linear; /* smoother opacity */
+    animation-fill-mode: forwards, forwards;
+    will-change: transform, opacity;
   }
   @keyframes fadeOpacity {
     0% { opacity: 0; }
@@ -84,6 +116,15 @@
     0%   { transform: translateX(calc(var(--dx, 0px) - var(--amp, 8px))) translateY(0); }
     50%  { transform: translateX(calc(var(--dx, 0px) + var(--amp, 8px))) translateY(0); }
     100% { transform: translateX(calc(var(--dx, 0px) - var(--amp, 8px))) translateY(0); }
+  }
+  @keyframes rainFall {
+    0%   { transform: translateY(-12vh); }
+    100% { transform: translateY(112vh); }
+  }
+  @keyframes rainOpacity {
+    0% { opacity: 0; }
+    50% { opacity: 0.66; }
+    100% { opacity: 0; }
   }
 
   .stats {
@@ -130,9 +171,23 @@
     overflow-x: auto;
     overflow-y: hidden;
     scroll-behavior: smooth;
-    scrollbar-width: thin;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(0,209,255,0.9) rgba(0, 40, 60, 0.35);
     backdrop-filter: blur(6px) saturate(120%);
   }
+  /* WebKit custom scrollbar for carousel */
+  .tracks::-webkit-scrollbar { height: 12px; }
+  .tracks::-webkit-scrollbar-track { background: linear-gradient(90deg, rgba(0,40,60,0.35), rgba(0,0,0,0.2)); border-radius: 999px; }
+  .tracks::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #00d1ff, #ffe600);
+    border-radius: 999px;
+    border: 3px solid rgba(0,0,0,0); /* padding via transparent border */
+    background-clip: padding-box;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  }
+  .tracks:hover::-webkit-scrollbar-thumb { filter: saturate(125%) brightness(1.05); }
+  .tracks::-webkit-scrollbar-thumb:active { filter: saturate(140%) brightness(1.10); }
+  .tracks::-webkit-scrollbar-corner { background: transparent; }
 
   .tracks-nav {
     position: absolute;

@@ -369,16 +369,17 @@ function startStatsCycle(container, user) {
   const renderOnce = () => {
     renderStatsBackground(container, user);
   };
+  // Start continuous spawning without clearing, for smoothness
   renderOnce();
-  // Cycle every 10 seconds
   if (typeof window !== 'undefined') {
     clearInterval(statsCycleTimer);
-    statsCycleTimer = setInterval(renderOnce, 10000);
+    // Spawn new rain items every 2 seconds
+    statsCycleTimer = setInterval(renderOnce, 2000);
   }
 }
 
 function renderStatsBackground(container, user) {
-  container.innerHTML = '';
+  // Do not clear; append items and remove each when its animation ends for smoothness
   const entries = [];
   const num = (x) => (x === null || x === undefined) ? '—' : String(x);
   if (user.handle) entries.push(`@${user.handle}`);
@@ -395,27 +396,28 @@ function renderStatsBackground(container, user) {
   if (user.website) entries.push(`${user.website}`);
   if (user.donation) entries.push(`${user.donation}`);
 
-  // Create a few items and stagger their animation delays
-  const maxItems = Math.min(entries.length, 16);
-  shuffle(entries);
-  for (let i = 0; i < maxItems; i++) {
+  // Rainfall: spawn a small batch each tick for continuous motion
+  const spawnCount = Math.min(6, Math.max(3, entries.length ? 4 : 0));
+  const rainEntries = [];
+  for (let i = 0; i < spawnCount; i++) rainEntries.push(entries[(Math.floor(Math.random()*entries.length)) % entries.length]);
+
+  for (let i = 0; i < rainEntries.length; i++) {
     const span = document.createElement('div');
-    span.className = 'stats-bg__item';
-    // staggered delay for both animations (opacity + drift)
-    span.style.animationDelay = `${(i % 6) * 1.1}s, ${(i % 6) * 0.6}s`;
-    // distribute evenly across nearly full width
-    const leftPct = Math.round(((i + 1) * 100) / (maxItems + 1));
+    span.className = 'stats-bg__item stats-bg__item--rain';
+    // horizontal position across width (avoid extreme edges)
+    const leftPct = 6 + Math.floor(Math.random() * 88); // 6%..94%
     span.style.left = `${leftPct}%`;
-    // random amplitude and baseline horizontal offset
-    const amp = 6 + Math.floor(Math.random() * 10); // 6px..15px drift
-    const dx = -4 + Math.floor(Math.random() * 9);   // -4px..+4px base shift
-    span.style.setProperty('--amp', `${amp}px`);
-    span.style.setProperty('--dx', `${dx}px`);
-    span.style.setProperty('--drift-dur', `${10 + Math.floor(Math.random() * 8)}s`);
-    // slight vertical variance along bottom band
-    const bottomVh = 3 + Math.floor(Math.random() * 12); // 3vh..14vh
-    span.style.bottom = `${bottomVh}vh`;
-    span.textContent = entries[i];
+    // duration and delay
+    const dur = 10 + Math.floor(Math.random() * 6); // 10s..15s smoother
+    const delay = Math.random() * 0.8; // small jitter only
+    span.style.setProperty('--dur', `${dur}s`);
+    span.style.setProperty('--delay', `${delay.toFixed(2)}s`);
+    // slight size variance (smaller range)
+    const fs = 0.8 + Math.random() * 0.25; // 0.80x..1.05x
+    span.style.fontSize = `calc(clamp(0.8rem, 2.2vw, 1.8rem) * ${fs.toFixed(2)})`;
+    span.textContent = rainEntries[i];
+    // cleanup after animation completes
+    span.addEventListener('animationend', () => span.remove());
     container.appendChild(span);
   }
 }
