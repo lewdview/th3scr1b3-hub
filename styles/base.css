@@ -46,6 +46,17 @@
     opacity: 0;
     transition: opacity 240ms ease;
   }
+  #backdrop-vis {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* behind the waveform, above stats-bg */
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 600ms ease;
+    filter: blur(0.5px) saturate(120%);
+  }
 }
 
 @layer components {

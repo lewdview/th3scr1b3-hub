@@ -1,5 +1,6 @@
 import { initDraggablePlayer } from './draggablePlayer.js';
 import { initWaveform } from './waveform.js';
+import { initBackdropVis } from './backdropVis.js';
 import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getTracksForUserId, getAllTracksForUserId } from './audius.js';
 
 const APP_NAME = 'th3scr1b3-music-hub';
@@ -42,12 +43,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   const brandEl = $('brand');
   const latestEl = $('latest-song');
   const canvas = $('energy-wave');
+  const backdropCanvas = $('backdrop-vis');
   const tracksEl = $('tracks');
   const statsEl = $('stats');
   const statsBgEl = $('stats-bg');
 
   // Init player
   const player = initDraggablePlayer(playerEl);
+
+  // Backdrop visualizer (created on first play)
+  let backdrop;
+  let backdropActivated = false;
+  let shortcutsBound = false;
 
   // Waveform anchors compute from three elements
   const wf = initWaveform(canvas, () => {
@@ -107,9 +114,52 @@ window.addEventListener('DOMContentLoaded', async () => {
     brandEl.style.setProperty('--brand-glow2', '0.15');
   }
 
-  audio.addEventListener('play', () => { wf.start(); canvas.style.opacity = '1'; startGlowLoop(); });
-  audio.addEventListener('pause', () => { wf.stop(); canvas.style.opacity = '0'; stopGlowLoop(); });
-  audio.addEventListener('ended', () => { wf.stop(); canvas.style.opacity = '0'; stopGlowLoop(); });
+  audio.addEventListener('play', () => {
+    wf.start();
+    canvas.style.opacity = '1';
+    // Activate backdrop on first play
+    if (!backdropActivated && backdropCanvas) {
+      backdrop = initBackdropVis(backdropCanvas, { getEnergyBands: player.getEnergyBands });
+      // expose reference for shortcut handler
+      try { backdropCanvas.__backdrop_ref = backdrop; } catch {}
+      // set initial mode from localStorage
+      try {
+        const saved = parseInt(localStorage.getItem('th3scr1b3_vis_mode') || '0', 10);
+        if (!Number.isNaN(saved)) backdrop.setMode(saved);
+      } catch {}
+      backdrop.start();
+      backdropCanvas.style.opacity = '0.85';
+      backdropActivated = true;
+      // Bind shortcuts once
+      if (!shortcutsBound) {
+        bindVisualizerShortcuts();
+        shortcutsBound = true;
+      }
+    } else if (backdrop) {
+      backdrop.start();
+      backdropCanvas.style.opacity = '0.85';
+    }
+    startGlowLoop();
+  });
+  audio.addEventListener('pause', () => {
+    wf.stop();
+    canvas.style.opacity = '0';
+    if (backdrop) {
+      // keep faintly visible when paused
+      backdrop.stop();
+      backdropCanvas.style.opacity = '0.25';
+    }
+    stopGlowLoop();
+  });
+  audio.addEventListener('ended', () => {
+    wf.stop();
+    canvas.style.opacity = '0';
+    if (backdrop) {
+      backdrop.stop();
+      backdropCanvas.style.opacity = '0.15';
+    }
+    stopGlowLoop();
+  });
 
   // Load user (for stats) in parallel with latest track
   const [userForStats, track] = await Promise.all([
@@ -149,6 +199,36 @@ window.addEventListener('DOMContentLoaded', async () => {
   centerCanvasToContainer(canvas, document.querySelector('.hero'));
   
 });
+
+function bindVisualizerShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (!e || e.repeat) return;
+    const active = document.activeElement;
+    // Only when focus isn't on an input/textarea/contenteditable
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+    const key = e.key.toLowerCase();
+    const canvas = document.getElementById('backdrop-vis');
+    const vis = canvas && canvas.__backdrop_ref;
+    if (!vis) return;
+    if (key === 'v') {
+      vis.nextMode();
+      try { localStorage.setItem('th3scr1b3_vis_mode', String(vis.getMode())); } catch {}
+    } else if (key === '1' || key === '2' || key === '3') {
+      const mode = (parseInt(key, 10) - 1) | 0;
+      vis.setMode(mode);
+      try { localStorage.setItem('th3scr1b3_vis_mode', String(mode)); } catch {}
+    } else {
+      return;
+    }
+    // Provide a subtle visual confirmation via quick opacity pulse
+    try {
+      canvas.style.transition = 'opacity 120ms ease';
+      const prev = canvas.style.opacity || '0.85';
+      canvas.style.opacity = '1.0';
+      setTimeout(() => { canvas.style.opacity = prev; canvas.style.transition = ''; }, 120);
+    } catch {}
+  });
+}
 
 function formatTime(seconds) {
   if (!seconds && seconds !== 0) return '—';
