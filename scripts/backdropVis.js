@@ -46,6 +46,7 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
   uniform sampler2D u_prev;
   uniform float u_time,u_energy,u_bass,u_beat; 
   uniform int u_mode;
+  uniform vec3 u_pa,u_pb,u_pc,u_pd; // palette params
 
   vec3 pal(float t, vec3 a, vec3 b, vec3 c, vec3 d){ return a + b*cos(6.28318*(c*t + d)); }
 
@@ -72,7 +73,7 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     vec3 prev = texture(u_prev, coord).rgb * 0.985;
     vec2 p = uv-0.5; float r=length(p);
     float tt = t*0.25 + u_energy*0.8 + u_bass*0.6;
-    vec3 col = pal(r*2.0+tt, vec3(0.45), vec3(0.35), vec3(1.0,0.9,0.7), vec3(0.0,0.10,0.20));
+    vec3 col = pal(r*2.0+tt, u_pa, u_pb, u_pc, u_pd);
     col += u_beat*0.18;
     vec3 outc = max(prev*0.98, col*0.85);
     fragColor = vec4(outc,1.0);
@@ -86,6 +87,10 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
   const loc_bass = gl.getUniformLocation(prog, 'u_bass');
   const loc_beat = gl.getUniformLocation(prog, 'u_beat');
   const loc_mode = gl.getUniformLocation(prog, 'u_mode');
+  const loc_pa = gl.getUniformLocation(prog, 'u_pa');
+  const loc_pb = gl.getUniformLocation(prog, 'u_pb');
+  const loc_pc = gl.getUniformLocation(prog, 'u_pc');
+  const loc_pd = gl.getUniformLocation(prog, 'u_pd');
 
   let tex = [null,null];
   let fbo = [null,null];
@@ -114,6 +119,11 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
   }
 
   let mode=0, running=false, startTs=0, raf=0;
+  // palette state (defaults similar to before)
+  let pa=[0.45,0.45,0.45];
+  let pb=[0.35,0.35,0.35];
+  let pc=[1.0,0.9,0.7];
+  let pd=[0.0,0.10,0.20];
 
   function draw(dstFbo, srcTex){
     gl.bindFramebuffer(gl.FRAMEBUFFER, dstFbo);
@@ -135,6 +145,10 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     gl.uniform1f(loc_bass, b);
     gl.uniform1f(loc_beat, beat);
     gl.uniform1i(loc_mode, mode);
+    gl.uniform3f(loc_pa, pa[0], pa[1], pa[2]);
+    gl.uniform3f(loc_pb, pb[0], pb[1], pb[2]);
+    gl.uniform3f(loc_pc, pc[0], pc[1], pc[2]);
+    gl.uniform3f(loc_pd, pd[0], pd[1], pd[2]);
 
     gl.drawArrays(gl.TRIANGLES,0,6);
   }
@@ -152,9 +166,12 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
   function setMode(m){ mode=((m|0)+3)%3; }
   function nextMode(){ setMode(mode+1); }
   function getMode(){ return mode; }
+  function setPalette(a,b,c,d){
+    if (a) pa=a; if (b) pb=b; if (c) pc=c; if (d) pd=d;
+  }
 
   resize();
   window.addEventListener('resize', resize);
 
-  return { start, stop, setMode, nextMode, getMode, resize, el: canvas };
+  return { start, stop, setMode, nextMode, getMode, setPalette, resize, el: canvas };
 }

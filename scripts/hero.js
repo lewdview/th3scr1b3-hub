@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let backdrop;
   let backdropActivated = false;
   let shortcutsBound = false;
+  let pendingPalette = null;
 
   // Waveform anchors compute from three elements
   const wf = initWaveform(canvas, () => {
@@ -127,6 +128,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         const saved = parseInt(localStorage.getItem('th3scr1b3_vis_mode') || '0', 10);
         if (!Number.isNaN(saved)) backdrop.setMode(saved);
       } catch {}
+      // apply pending palette if any
+      if (pendingPalette && backdrop.setPalette) {
+        try { backdrop.setPalette(...pendingPalette); } catch {}
+      }
       backdrop.start();
       backdropCanvas.style.opacity = '0.85';
       backdropActivated = true;
@@ -178,6 +183,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Load latest track
   if (track) {
     player.setTrack(track);
+    // Update visualizer palette from latest track artwork
+    if (track.artworkUrl) updateVisualizerPaletteFromArtwork(track.artworkUrl, track.title||'');
     latestEl.textContent = `Latest: ${track.title}`;
     latestEl.href = track.permalink || '#';
     latestEl.addEventListener('click', (e) => {
@@ -199,6 +206,56 @@ window.addEventListener('DOMContentLoaded', async () => {
   centerCanvasToContainer(canvas, document.querySelector('.hero'));
   
 });
+
+async function updateVisualizerPaletteFromArtwork(url, seed) {
+  // Try to derive palette from artwork; fallback to hash-based
+  function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+  function hslToRgb(h,s,l){
+    const a=s*Math.min(l,1-l);
+    const f=(n,k=(n+h/30)%12)=>l-a*Math.max(Math.min(k-3,9-k,1),-1);
+    return [f(0),f(8),f(4)];
+  }
+  async function avgColorFromImage(src){
+    return new Promise((resolve)=>{
+      const img=new Image(); img.crossOrigin='anonymous';
+      img.onload=()=>{
+        try{
+          const c=document.createElement('canvas'); const ctx=c.getContext('2d');
+          const w=24,h=24; c.width=w; c.height=h; ctx.drawImage(img,0,0,w,h);
+          const data=ctx.getImageData(0,0,w,h).data; let r=0,g=0,b=0,n=0;
+          for(let i=0;i<data.length;i+=4){ const a=data[i+3]; if(a<8) continue; r+=data[i]; g+=data[i+1]; b+=data[i+2]; n++; }
+          if(n===0) throw new Error('no pixels');
+          resolve([r/n/255,g/n/255,b/n/255]);
+        }catch{ resolve(null); }
+      };
+      img.onerror=()=>resolve(null);
+      img.src=src;
+    });
+  }
+  let base = await avgColorFromImage(url);
+  if (!base) {
+    const h = hashStr(seed||'th3scr1b3') % 360; const s=0.65, l=0.52; base=hslToRgb(h,s,l);
+  }
+  // derive accent by rotating hue +20deg in HSL
+  const toHsl=(r,g,b)=>{
+    const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2; if(max===min){ h=0;s=0;} else { const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min); switch(max){case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; default: h=(r-g)/d+4;} h=h*60; } return [h,s,l];
+  };
+  const toRgb=(h,s,l)=>{ const c=(1-Math.abs(2*l-1))*s; const x=c*(1-Math.abs(((h/60)%2)-1)); const m=l-c/2; let r1=0,g1=0,b1=0; if(h<60){r1=c;g1=x;} else if(h<120){r1=x;g1=c;} else if(h<180){g1=c;b1=x;} else if(h<240){g1=x;b1=c;} else if(h<300){r1=x;b1=c;} else {r1=c;b1=x;} return [r1+m,g1+m,b1+m]; };
+  const [hb,sb,lb]=toHsl(base[0],base[1],base[2]);
+  const accent=toRgb((hb+35.0), Math.min(0.9,sb+0.1), Math.min(0.75,lb+0.05));
+
+  // Build palette params
+  const pa=[0.42,0.42,0.42];
+  const pb=[0.34,0.34,0.34];
+  const pc=[base[0]*1.1, base[1]*1.1, base[2]*1.1];
+  const pd=[accent[0]*0.8, accent[1]*0.8, accent[2]*0.8];
+
+  if (typeof backdrop !== 'undefined' && backdrop && backdrop.setPalette) {
+    backdrop.setPalette(pa,pb,pc,pd);
+  } else {
+    pendingPalette=[pa,pb,pc,pd];
+  }
+}
 
 function bindVisualizerShortcuts() {
   document.addEventListener('keydown', (e) => {
@@ -370,6 +427,7 @@ async function renderTracksGrid(container, handle, player) {
       try {
         const streamUrl = await getStreamUrlForTrack({ id: t.id }, APP_NAME);
         player.setTrack({ title: t.title, streamUrl, permalink: t.permalink, artworkUrl: t.artworkUrl });
+        if (t.artworkUrl) updateVisualizerPaletteFromArtwork(t.artworkUrl, t.title||'');
       } catch (err) {
         console.warn('Failed to play track', err);
       }
