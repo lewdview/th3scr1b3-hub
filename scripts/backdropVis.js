@@ -67,9 +67,34 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     p = vec2(cos(a),sin(a))*r; float rot = 0.15 + 0.6*e; float c=cos(rot*t), s=sin(rot*t);
     p = mat2(c,-s,s,c)*p; return p*0.98 + 0.5;
   }
+  vec2 ripple(vec2 uv, float t, float e){
+    vec2 p=uv-0.5; float r=length(p); float w=sin(10.0*r - t*2.0 - e*4.0)*0.015; 
+    p += normalize(p)*(w + 0.01*e);
+    float rot = 0.05 + 0.25*e; float cs=cos(rot*t), sn=sin(rot*t);
+    p = mat2(cs,-sn,sn,cs)*p; return p+0.5;
+  }
+  vec2 spiral(vec2 uv, float t, float e){
+    vec2 p=uv-0.5; float r=length(p)+1e-4; float a=atan(p.y,p.x);
+    a += 3.0/r * (0.02+0.12*e) + 0.3*sin(t*0.5);
+    p=vec2(cos(a),sin(a))*r*(0.99-0.02*e); return p+0.5;
+  }
+  vec2 grid(vec2 uv, float t, float e){
+    vec2 st = uv*vec2(12.0 + e*12.0, 8.0 + e*8.0);
+    st += vec2(t*0.2, t*0.15);
+    st = fract(st);
+    vec2 p = (st-0.5) * (0.98-0.05*e);
+    return p + 0.5;
+  }
 
   void main(){
-    float t=u_time; vec2 uv=v_uv; vec2 coord = (u_mode==0)?warp(uv,t,u_energy):((u_mode==1)?tunnel(uv,t,u_energy):kaleido(uv,t,u_energy));
+    float t=u_time; vec2 uv=v_uv; vec2 coord;
+    if(u_mode==0){ coord = warp(uv,t,u_energy); }
+    else if(u_mode==1){ coord = tunnel(uv,t,u_energy); }
+    else if(u_mode==2){ coord = kaleido(uv,t,u_energy); }
+    else if(u_mode==3){ coord = ripple(uv,t,u_energy); }
+    else if(u_mode==4){ coord = spiral(uv,t,u_energy); }
+    else { coord = grid(uv,t,u_energy); }
+
     vec3 prev = texture(u_prev, coord).rgb * 0.985;
     vec2 p = uv-0.5; float r=length(p);
     float tt = t*0.25 + u_energy*0.8 + u_bass*0.6;
@@ -163,7 +188,7 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
 
   function start(){ if(running) return; running=true; startTs=performance.now(); cancelAnimationFrame(raf); raf=requestAnimationFrame(step); }
   function stop(){ running=false; cancelAnimationFrame(raf); }
-  function setMode(m){ mode=((m|0)+3)%3; }
+  function setMode(m){ mode=((m|0)+6)%6; }
   function nextMode(){ setMode(mode+1); }
   function getMode(){ return mode; }
   function setPalette(a,b,c,d){

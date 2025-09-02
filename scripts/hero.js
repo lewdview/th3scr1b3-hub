@@ -270,7 +270,7 @@ function bindVisualizerShortcuts() {
     if (key === 'v') {
       vis.nextMode();
       try { localStorage.setItem('th3scr1b3_vis_mode', String(vis.getMode())); } catch {}
-    } else if (key === '1' || key === '2' || key === '3') {
+    } else if (key === '1' || key === '2' || key === '3' || key === '4' || key === '5' || key === '6') {
       const mode = (parseInt(key, 10) - 1) | 0;
       vis.setMode(mode);
       try { localStorage.setItem('th3scr1b3_vis_mode', String(mode)); } catch {}
