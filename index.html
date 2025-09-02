@@ -19,12 +19,44 @@
 
       <a id="latest-song" class="latest" data-anchor="latest" href="#" target="_blank" rel="noopener">Latest song</a>
 
+      <!-- Audius label above carousel -->
+      <div class="section-label" aria-hidden="true">
+        <svg class="label__logo" width="28" height="28" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="audg" x1="0" y1="64" x2="64" y2="0" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#A855F7"/>
+              <stop offset="1" stop-color="#00D1FF"/>
+            </linearGradient>
+          </defs>
+          <path d="M32 6L6 58h52L32 6zm0 16l12.5 24H19.5L32 22z" fill="url(#audg)"/>
+        </svg>
+        <span class="label__text">Audius</span>
+      </div>
+
       <div id="tracks" class="tracks" aria-label="Your tracks"></div>
       <button id="tracks-left" class="tracks-nav tracks-nav--left" aria-label="Scroll left" type="button">‹</button>
       <button id="tracks-right" class="tracks-nav tracks-nav--right" aria-label="Scroll right" type="button">›</button>
       <button id="tracks-shuffle" class="tracks-nav tracks-nav--shuffle" aria-label="Shuffle tracks" type="button">🔀</button>
 
       <aside id="stats" class="stats" aria-label="Audius stats"></aside>
+    </section>
+
+    <!-- Spacer between sections -->
+    <section class="spacer" aria-hidden="true"></section>
+
+    <!-- YouTube section placeholder -->
+    <section class="section" aria-label="YouTube section">
+      <div class="section__header">
+        <svg class="label__logo" width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <rect x="3" y="10" width="42" height="28" rx="6" fill="#FF0000"/>
+          <path d="M21 18l10 6-10 6v-12z" fill="#fff"/>
+        </svg>
+        <span class="label__text">YouTube</span>
+      </div>
+      <div id="youtube" class="section__body">
+        <!-- TODO: add YouTube embeds/playlists here -->
+        <div class="placeholder">Add your YouTube embeds here.</div>
+      </div>
     </section>
 
     <script type="module" src="./scripts/hero.js"></script>

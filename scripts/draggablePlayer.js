@@ -1,6 +1,7 @@
 export function initDraggablePlayer(container) {
   container.classList.add("player");
   container.innerHTML = `
+    <div class="player__hint" id="player-hint">Move me</div>
     <div class="player__art"><img id="player-art" alt="Cover art" /></div>
     <div class="player__title" id="player-title">Loading…</div>
     <div class="player__progress" id="progress"><div class="player__progress-fill" id="progress-fill"></div></div>
@@ -22,6 +23,7 @@ export function initDraggablePlayer(container) {
     title: container.querySelector('#player-title'),
     artWrap: container.querySelector('.player__art'),
     art: container.querySelector('#player-art'),
+    hint: container.querySelector('#player-hint'),
     dragging: false,
     offsetX: 0,
     offsetY: 0,
@@ -41,6 +43,7 @@ export function initDraggablePlayer(container) {
 
   // Playback controls
   state.btnPlay.addEventListener('click', async () => {
+    dismissHint();
     if (state.audio.src) {
       if (state.audio.paused) {
         try {
@@ -52,9 +55,12 @@ export function initDraggablePlayer(container) {
     }
   });
   state.btnStop.addEventListener('click', () => {
+    dismissHint();
     state.audio.pause();
     state.audio.currentTime = 0;
   });
+  container.addEventListener('click', dismissHint, { once: false });
+  container.addEventListener('touchstart', dismissHint, { once: false, passive: true });
 
   function updateTimeUI() {
     const t = Math.floor(state.audio.currentTime || 0);
@@ -96,6 +102,19 @@ export function initDraggablePlayer(container) {
     state.btnPlay.textContent = 'Play';
   });
 
+  // Hide hint utility
+  function dismissHint() {
+    if (!state.hint) return;
+    state.hint.style.display = 'none';
+    try { localStorage.setItem('th3scr1b3_player_hint_dismissed', '1'); } catch {}
+  }
+
+  // Restore hint visibility (if not dismissed before)
+  try {
+    const dismissed = localStorage.getItem('th3scr1b3_player_hint_dismissed') === '1';
+    if (dismissed && state.hint) state.hint.style.display = 'none';
+  } catch {}
+
   // Draggable behavior via Pointer Events
   const onPointerDown = (e) => {
     // only start drag when clicking header/controls area (not while dragging text)
@@ -105,6 +124,7 @@ export function initDraggablePlayer(container) {
     const rect = container.getBoundingClientRect();
     state.offsetX = e.clientX - rect.left;
     state.offsetY = e.clientY - rect.top;
+    dismissHint();
   };
   const onPointerMove = (e) => {
     if (!state.dragging) return;

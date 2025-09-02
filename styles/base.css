@@ -25,12 +25,13 @@
     background: radial-gradient(1200px 800px at 50% 50%, #0f1320 0%, var(--bg) 60%, #05060a 100%);
     color: var(--text);
     line-height: 1.4;
-    overflow: hidden; /* keep the floating player within viewport */
+    overflow: auto; /* allow page scroll */
+    scroll-behavior: smooth;
   }
 
   .hero {
     position: relative;
-    height: 100vh;
+    min-height: 100vh;
     width: 100vw;
     isolation: isolate;
   }
@@ -130,6 +131,7 @@
     overflow-y: hidden;
     scroll-behavior: smooth;
     scrollbar-width: thin;
+    backdrop-filter: blur(6px) saturate(120%);
   }
 
   .tracks-nav {
@@ -255,10 +257,10 @@
   }
 
   .player {
-    position: absolute;
+    position: fixed; /* keep in view during scroll */
     top: 24px;
     left: 24px;
-    z-index: 2;
+    z-index: 10;
     width: min(340px, 42vw);
     user-select: none;
     cursor: grab;
@@ -360,6 +362,52 @@
     text-decoration: none;
   }
   .latest:hover { text-decoration: underline; }
+  /* Section labels and layout */
+  .section-label, .section__header {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: calc(50% + 9rem - 46px); /* above the tracks carousel */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 2;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    backdrop-filter: blur(6px) saturate(120%);
+  }
+  .label__logo { display: block; }
+  .label__text { font-weight: 900; letter-spacing: 0.06em; opacity: 0.9; }
+
+  .section {
+    position: relative;
+    padding: 80px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .section__body { margin-top: 16px; }
+  .spacer { height: 24vh; }
+  .placeholder { opacity: 0.75; font-style: italic; }
+
+  /* Player hint */
+  .player__hint {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 2;
+    background: white;
+    color: #0b0f12;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    pointer-events: none; /* clicks pass through */
+  }
+
 }
 
 @layer utilities {
