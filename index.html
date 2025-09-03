@@ -12,6 +12,20 @@
       <canvas id="backdrop-vis" aria-hidden="true"></canvas>
       <canvas id="energy-wave" aria-hidden="true"></canvas>
 
+      <!-- Mobile visualizer controls overlay -->
+      <div id="vis-controls" class="vis-controls" aria-label="Visualizer controls" role="group">
+        <button class="vis-controls__btn vis-controls__btn--prev" type="button" aria-label="Previous mode">‹</button>
+        <div class="vis-controls__modes" aria-hidden="false">
+          <button class="vis-controls__mode" data-mode="1" type="button" aria-label="Mode 1">1</button>
+          <button class="vis-controls__mode" data-mode="2" type="button" aria-label="Mode 2">2</button>
+          <button class="vis-controls__mode" data-mode="3" type="button" aria-label="Mode 3">3</button>
+          <button class="vis-controls__mode" data-mode="4" type="button" aria-label="Mode 4">4</button>
+          <button class="vis-controls__mode" data-mode="5" type="button" aria-label="Mode 5">5</button>
+          <button class="vis-controls__mode" data-mode="6" type="button" aria-label="Mode 6">6</button>
+        </div>
+        <button class="vis-controls__btn vis-controls__btn--next" type="button" aria-label="Next mode">›</button>
+      </div>
+
       <div id="floating-player" class="player" data-anchor="player" aria-live="polite">
         <!-- populated by JS -->
       </div>

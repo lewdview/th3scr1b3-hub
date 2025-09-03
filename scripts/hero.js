@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let backdrop;
   let backdropActivated = false;
   let shortcutsBound = false;
+  let controlsBound = false;
   let pendingPalette = null;
 
   // Waveform anchors compute from three elements
@@ -121,7 +122,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Activate backdrop on first play
     if (!backdropActivated && backdropCanvas) {
       backdrop = initBackdropVis(backdropCanvas, { getEnergyBands: player.getEnergyBands });
-      // expose reference for shortcut handler
+      // expose reference for shortcut/controls handler
       try { backdropCanvas.__backdrop_ref = backdrop; } catch {}
       // set initial mode from localStorage
       try {
@@ -139,6 +140,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (!shortcutsBound) {
         bindVisualizerShortcuts();
         shortcutsBound = true;
+      }
+      // Bind on-screen controls once
+      if (!controlsBound) {
+        initVisControls(backdrop);
+        controlsBound = true;
       }
     } else if (backdrop) {
       backdrop.start();
@@ -164,6 +170,22 @@ window.addEventListener('DOMContentLoaded', async () => {
       backdropCanvas.style.opacity = '0.15';
     }
     stopGlowLoop();
+  });
+
+  // Pause/resume visualizer when tab visibility changes to save battery
+  document.addEventListener('visibilitychange', () => {
+    try {
+      if (!backdrop) return;
+      if (document.hidden) {
+        backdrop.stop();
+        if (backdropCanvas) backdropCanvas.style.opacity = '0.15';
+      } else {
+        if (!audio.paused) {
+          backdrop.start();
+          if (backdropCanvas) backdropCanvas.style.opacity = '0.85';
+        }
+      }
+    } catch {}
   });
 
   // Load user (for stats) in parallel with latest track
@@ -254,6 +276,57 @@ async function updateVisualizerPaletteFromArtwork(url, seed) {
     backdrop.setPalette(pa,pb,pc,pd);
   } else {
     pendingPalette=[pa,pb,pc,pd];
+  }
+}
+
+function initVisControls(vis) {
+  const root = document.getElementById('vis-controls');
+  if (!root) return;
+  const modeBtns = Array.from(root.querySelectorAll('.vis-controls__mode'));
+  const prevBtn = root.querySelector('.vis-controls__btn--prev');
+  const nextBtn = root.querySelector('.vis-controls__btn--next');
+
+  const setActive = (mode) => {
+    const human = (mode % 6) + 1;
+    modeBtns.forEach((b) => b.classList.toggle('is-active', Number(b.dataset.mode) === human));
+  };
+
+  // Initialize state
+  try { setActive(vis.getMode()); } catch {}
+
+  modeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const m = (parseInt(btn.dataset.mode, 10) - 1) | 0;
+      vis.setMode(m);
+      setActive(m);
+      try { localStorage.setItem('th3scr1b3_vis_mode', String(m)); } catch {}
+      pulseCanvas();
+    });
+  });
+
+  prevBtn?.addEventListener('click', () => {
+    vis.setMode((vis.getMode() - 1 + 6) % 6);
+    const m = vis.getMode();
+    setActive(m);
+    try { localStorage.setItem('th3scr1b3_vis_mode', String(m)); } catch {}
+    pulseCanvas();
+  });
+  nextBtn?.addEventListener('click', () => {
+    vis.nextMode();
+    const m = vis.getMode();
+    setActive(m);
+    try { localStorage.setItem('th3scr1b3_vis_mode', String(m)); } catch {}
+    pulseCanvas();
+  });
+
+  function pulseCanvas() {
+    const canvas = document.getElementById('backdrop-vis');
+    try {
+      canvas.style.transition = 'opacity 120ms ease';
+      const prev = canvas.style.opacity || '0.85';
+      canvas.style.opacity = '1.0';
+      setTimeout(() => { canvas.style.opacity = prev; canvas.style.transition = ''; }, 120);
+    } catch {}
   }
 }
 

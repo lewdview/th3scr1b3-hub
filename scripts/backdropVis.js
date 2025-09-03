@@ -14,7 +14,14 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     return { start() {}, stop() {}, setMode() {}, nextMode() {}, getMode() { return 0; }, resize() {}, el: canvas };
   }
 
-  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  // DPR handling with mobile clamp and dynamic auto-tuning
+  const isCoarse = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: coarse)').matches : false;
+  let maxDpr = isCoarse ? 1.75 : 2.0;
+  let minDpr = 1.0;
+  let targetDpr = Math.min(maxDpr, Math.max(minDpr, (window.devicePixelRatio || 1)));
+  if (isCoarse) targetDpr = Math.min(targetDpr, 1.5); // stronger clamp on mobile initially
+  let dpr = targetDpr;
+
   function resize() {
     const { width: cssW, height: cssH } = canvas.getBoundingClientRect();
     const w = Math.max(1, Math.floor(cssW * dpr));
@@ -175,6 +182,10 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
   }
 
   let mode=0, running=false, startTs=0, raf=0;
+  // Performance tracking for auto DPR
+  let lastFrameTs = 0;
+  let fpsEMA = 60;
+  let lastAdjust = 0;
   // palette state (defaults similar to before)
   let pa=[0.45,0.45,0.45];
   let pb=[0.35,0.35,0.35];
@@ -209,7 +220,28 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     gl.drawArrays(gl.TRIANGLES,0,6);
   }
 
-  function step(){
+  function step(ts){
+    // Auto DPR tuning based on frame interval
+    if (!lastFrameTs) lastFrameTs = ts || performance.now();
+    const now = ts || performance.now();
+    const dt = Math.max(1, now - lastFrameTs);
+    const fps = 1000 / dt;
+    // Exponential moving average for stability
+    fpsEMA = fpsEMA * 0.9 + fps * 0.1;
+    lastFrameTs = now;
+
+    // Throttle adjustments
+    if (now - lastAdjust > 1000) {
+      let changed = false;
+      if (fpsEMA < 45 && targetDpr > minDpr) { targetDpr = Math.max(minDpr, Math.round((targetDpr - 0.25) * 4) / 4); changed = true; }
+      else if (fpsEMA > 58 && targetDpr < maxDpr) { targetDpr = Math.min(maxDpr, Math.round((targetDpr + 0.25) * 4) / 4); changed = true; }
+      if (changed && Math.abs(dpr - targetDpr) > 0.01) {
+        dpr = targetDpr;
+        resize();
+        lastAdjust = now;
+      }
+    }
+
     draw(fbo[1-cur], tex[cur]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     draw(null, tex[1-cur]);

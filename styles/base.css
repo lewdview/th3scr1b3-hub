@@ -60,6 +60,53 @@
 }
 
 @layer components {
+  /* Visualizer mobile controls */
+  .vis-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: none; /* default hidden on desktop */
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.2));
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px) saturate(120%);
+  }
+  .vis-controls__btn {
+    appearance: none;
+    border: 0;
+    border-radius: 10px;
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    font-weight: 900;
+    color: var(--text);
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  }
+  .vis-controls__modes { display: flex; gap: 6px; }
+  .vis-controls__mode {
+    appearance: none;
+    border: 0;
+    border-radius: 8px;
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    font-weight: 900; font-size: 0.85rem;
+    color: var(--text);
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+    opacity: 0.85;
+  }
+  .vis-controls__mode.is-active {
+    background: linear-gradient(180deg, rgba(0,209,255,0.35), rgba(0,209,255,0.15));
+    box-shadow: inset 0 0 0 1px rgba(0,209,255,0.55), 0 0 18px rgba(0,209,255,0.25);
+    opacity: 1;
+  }
+
   .stats-bg {
     position: absolute;
     inset: 0;
@@ -480,6 +527,7 @@
   @media (max-width: 720px) {
     .player { width: min(92vw, 360px); left: 12px; top: 12px; }
     .latest { right: 12px; top: 12px; }
+    .vis-controls { display: flex; }
   }
 }
 
