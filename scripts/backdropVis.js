@@ -50,39 +50,45 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
 
   vec3 pal(float t, vec3 a, vec3 b, vec3 c, vec3 d){ return a + b*cos(6.28318*(c*t + d)); }
 
+  float line(vec2 uv, float thick) {
+    vec2 g = abs(fract(uv - 0.5) - 0.5);
+    float d = min(g.x, g.y);
+    return smoothstep(thick, thick*0.5, d);
+  }
+
   vec2 warp(vec2 uv, float t, float e){
     vec2 p = uv-0.5; float r = length(p)+1e-4; float a = atan(p.y,p.x);
-    float zoom = mix(0.996, 0.982, e); float spin = 0.02 + e*0.22;
-    a += spin*t + 0.12*sin(t*0.6 + r*6.0); p = vec2(cos(a),sin(a))*r; p*=zoom; return p+0.5;
+    float zoom = mix(0.996, 0.972, e); float spin = 0.06 + e*0.28;
+    a += spin*t + 0.18*sin(t*0.6 + r*8.0); p = vec2(cos(a),sin(a))*r; p*=zoom; return p+0.5;
   }
   vec2 tunnel(vec2 uv, float t, float e){
     vec2 p = uv-0.5; float r = length(p); float a = atan(p.y,p.x);
-    float z = 0.35 + 0.65*e; a += t*0.35 + 0.12*sin(t*0.9 + r*12.0);
-    r = pow(r, 0.75 + 0.2*e); p = vec2(cos(a),sin(a))*r*z + 0.5; return p;
+    float z = 0.28 + 0.85*e; a += t*0.45 + 0.18*sin(t*1.2 + r*16.0);
+    r = pow(r, 0.6 + 0.3*e); p = vec2(cos(a),sin(a))*r*z + 0.5; return p;
   }
   vec2 kaleido(vec2 uv, float t, float e){
     vec2 p = uv-0.5; float a = atan(p.y,p.x); float r = length(p);
-    float seg = 6.0 + floor(e*6.0);
+    float seg = 5.0 + floor(e*10.0);
     a = mod(a, 6.28318/seg); a = abs(a - 3.14159/seg);
-    p = vec2(cos(a),sin(a))*r; float rot = 0.15 + 0.6*e; float c=cos(rot*t), s=sin(rot*t);
-    p = mat2(c,-s,s,c)*p; return p*0.98 + 0.5;
+    p = vec2(cos(a),sin(a))*r; float rot = 0.35 + 0.8*e; float c=cos(rot*t), s=sin(rot*t);
+    p = mat2(c,-s,s,c)*p; return p*0.96 + 0.5;
   }
   vec2 ripple(vec2 uv, float t, float e){
-    vec2 p=uv-0.5; float r=length(p); float w=sin(10.0*r - t*2.0 - e*4.0)*0.015; 
-    p += normalize(p)*(w + 0.01*e);
-    float rot = 0.05 + 0.25*e; float cs=cos(rot*t), sn=sin(rot*t);
+    vec2 p=uv-0.5; float r=length(p); float w=sin(14.0*r - t*2.8 - e*5.0)*(0.02+0.02*e);
+    p += normalize(p)*(w + 0.012*e);
+    float rot = 0.08 + 0.3*e; float cs=cos(rot*t), sn=sin(rot*t);
     p = mat2(cs,-sn,sn,cs)*p; return p+0.5;
   }
   vec2 spiral(vec2 uv, float t, float e){
     vec2 p=uv-0.5; float r=length(p)+1e-4; float a=atan(p.y,p.x);
-    a += 3.0/r * (0.02+0.12*e) + 0.3*sin(t*0.5);
-    p=vec2(cos(a),sin(a))*r*(0.99-0.02*e); return p+0.5;
+    a += (2.5 + 2.0*e)/r + 0.4*sin(t*0.7);
+    p=vec2(cos(a),sin(a))*r*(0.98-0.05*e); return p+0.5;
   }
   vec2 grid(vec2 uv, float t, float e){
-    vec2 st = uv*vec2(12.0 + e*12.0, 8.0 + e*8.0);
-    st += vec2(t*0.2, t*0.15);
+    vec2 st = uv*vec2(10.0 + e*18.0, 10.0 + e*14.0);
+    st += vec2(t*0.22, t*0.18);
     st = fract(st);
-    vec2 p = (st-0.5) * (0.98-0.05*e);
+    vec2 p = (st-0.5) * (0.95-0.08*e);
     return p + 0.5;
   }
 
@@ -95,12 +101,37 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     else if(u_mode==4){ coord = spiral(uv,t,u_energy); }
     else { coord = grid(uv,t,u_energy); }
 
-    vec3 prev = texture(u_prev, coord).rgb * 0.985;
-    vec2 p = uv-0.5; float r=length(p);
+    vec3 prev = texture(u_prev, coord).rgb;
+
+    // base palette color
+    vec2 pc = uv-0.5; float r=length(pc);
     float tt = t*0.25 + u_energy*0.8 + u_bass*0.6;
     vec3 col = pal(r*2.0+tt, u_pa, u_pb, u_pc, u_pd);
-    col += u_beat*0.18;
-    vec3 outc = max(prev*0.98, col*0.85);
+
+    // mode-specific overlays and blending
+    float fb = 0.985;
+    float colAmt = 0.85;
+    if (u_mode==1) { // tunnel: stronger prev decay, radial pulse
+      fb = 0.970; colAmt = 0.90;
+      col *= 0.8 + 0.2*sin(6.0*r - t*2.0 + u_energy*2.0);
+    } else if (u_mode==2) { // kaleido: higher contrast
+      fb = 0.980; col = pow(col, vec3(0.8)); colAmt = 0.95;
+    } else if (u_mode==3) { // ripple: ring lines
+      float ring = smoothstep(0.04, 0.0, abs(sin(18.0*r - t*3.0)))*0.35;
+      col += ring;
+    } else if (u_mode==4) { // spiral: hue drift with time
+      col = pal(r*2.0+tt+0.2*sin(t*0.8), u_pa, u_pb, u_pc, u_pd);
+    } else if (u_mode==5) { // grid: crisp grid overlay
+      vec2 g = uv*vec2(24.0,24.0) + vec2(t*0.4, t*0.33);
+      float gl = line(g, 0.06);
+      col = mix(col, vec3(1.0), gl*0.35);
+      fb = 0.992; colAmt = 0.80;
+    }
+
+    // beat pop
+    col += u_beat * 0.18;
+
+    vec3 outc = max(prev*fb, col*colAmt);
     fragColor = vec4(outc,1.0);
   }
   `;
