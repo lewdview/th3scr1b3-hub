@@ -412,8 +412,47 @@ async function renderTracksGrid(container, handle, player) {
     const albumItem = normalizeCollection(album, 'album');
     const playlistItem = normalizeCollection(playlist, 'playlist');
 
-    // Build list: shuffled tracks first, then album, then playlist
-    let list = [...trackItems];
+    // Mode and list computation
+    const extrasAll = [albumItem, playlistItem].filter(Boolean);
+
+    function getAvailableModes() {
+      const modes = ['mixed', 'tracks'];
+      if (albumItem) modes.push('album');
+      if (playlistItem) modes.push('playlist');
+      return modes;
+    }
+
+    function normalizeMode(m) {
+      const avail = getAvailableModes();
+      return avail.includes(m) ? m : 'mixed';
+    }
+
+    function computeList(mode) {
+      const avail = getAvailableModes();
+      const m = normalizeMode(mode);
+      if (m === 'tracks') {
+        const tracksOnly = [...trackItems];
+        shuffle(tracksOnly);
+        return tracksOnly;
+      }
+      if (m === 'album') {
+        return albumItem ? [albumItem] : [];
+      }
+      if (m === 'playlist') {
+        return playlistItem ? [playlistItem] : [];
+      }
+      // mixed default
+      const tracksOnly = [...trackItems];
+      shuffle(tracksOnly);
+      const extras = [albumItem, playlistItem].filter(Boolean);
+      return [...tracksOnly, ...extras];
+    }
+
+    // Initialize mode from storage
+    let mode = 'mixed';
+    try { mode = normalizeMode(localStorage.getItem('th3scr1b3_tracks_mode') || 'mixed'); } catch {}
+
+    let list = computeList(mode);
 
     function buildTiles() {
       // rebuild tiles from current list order
@@ -486,11 +525,7 @@ async function renderTracksGrid(container, handle, player) {
       });
     }
 
-    // initial random order: shuffle tracks, then append album and playlist (if any)
-    const extras = [albumItem, playlistItem].filter(Boolean);
-    const tracksOnly = list.filter(it => it.type === 'track');
-    shuffle(tracksOnly);
-    list = [...tracksOnly, ...extras];
+    // initial render per mode
     buildTiles();
 
     // Momentum scrolling & nav
@@ -533,16 +568,53 @@ async function renderTracksGrid(container, handle, player) {
 
     // Shuffle button wiring
     const shuffleBtn = document.getElementById('tracks-shuffle');
+    function updateShuffleVisibility() {
+      if (!shuffleBtn) return;
+      const hasTracks = list.some(it => it.type === 'track');
+      shuffleBtn.style.display = hasTracks ? 'flex' : 'none';
+    }
     if (shuffleBtn) {
-      shuffleBtn.style.display = 'flex';
+      updateShuffleVisibility();
       shuffleBtn.onclick = () => {
-        const extras = list.filter(it => it.type !== 'track');
+        // Only shuffle tracks within current list/context
         const tracksOnly = list.filter(it => it.type === 'track');
+        if (!tracksOnly.length) return;
+        const others = list.filter(it => it.type !== 'track');
         shuffle(tracksOnly);
-        list = [...tracksOnly, ...extras];
+        // In mixed mode, keep others at the end; in tracks mode there are no others
+        list = [...tracksOnly, ...others];
         buildTiles();
         container.scrollTo({ left: 0, behavior: 'smooth' });
         updateNav();
+      };
+    }
+
+    // Toggle button wiring (cycle modes)
+    const toggleBtn = document.getElementById('tracks-toggle');
+    function labelFor(mode) {
+      if (mode === 'tracks') return 'Tracks';
+      if (mode === 'album') return 'Album';
+      if (mode === 'playlist') return 'Playlist';
+      return 'Mixed';
+    }
+    function applyMode(newMode) {
+      mode = normalizeMode(newMode);
+      try { localStorage.setItem('th3scr1b3_tracks_mode', mode); } catch {}
+      list = computeList(mode);
+      buildTiles();
+      updateShuffleVisibility();
+      updateNav();
+      container.scrollTo({ left: 0, behavior: 'smooth' });
+      if (toggleBtn) toggleBtn.textContent = labelFor(mode);
+    }
+    if (toggleBtn) {
+      toggleBtn.style.display = 'flex';
+      toggleBtn.textContent = labelFor(mode);
+      toggleBtn.onclick = () => {
+        const avail = getAvailableModes();
+        const i = avail.indexOf(mode);
+        const next = avail[(i + 1) % avail.length];
+        applyMode(next);
       };
     }
 
