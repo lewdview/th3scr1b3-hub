@@ -339,6 +339,28 @@
   }
   .tile__play:hover { filter: saturate(120%) brightness(1.05); }
 
+  /* Now playing indicator: show a thin gradient line instead of a big hover square */
+  .tile.is-playing {
+    /* prevent the wide hover expansion for the active tile */
+  }
+  .tile.is-playing::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #00d1ff, #ffe600);
+    box-shadow: 0 0 12px rgba(0, 209, 255, 0.45);
+    pointer-events: none;
+  }
+  .tile.is-playing:hover, .tile.is-playing:focus-within {
+    width: 120px; /* don't expand */
+    transform: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }
+  .tile.is-playing .tile__info,
+  .tile.is-playing:hover .tile__info,
+  .tile.is-playing:focus-within .tile__info { transform: translateX(100%); }
+
   .brand {
     position: absolute;
     top: 50%;

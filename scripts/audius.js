@@ -117,3 +117,43 @@ export function getArtworkUrl(track, size = '480x480') {
   return sized || direct || '';
 }
 
+// Fetch user collections (playlists and albums). Audius represents both under "playlists" with an is_album flag.
+export async function getCollectionsForUserId(userId, appName, limit = 50, offset = 0) {
+  let base = await pickDiscoveryNode();
+  let url = `${base}/v1/users/${encodeURIComponent(userId)}/playlists?app_name=${encodeURIComponent(appName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`;
+  let res = await fetch(url);
+  if (!res.ok) {
+    base = await pickDiscoveryNode();
+    url = `${base}/v1/users/${encodeURIComponent(userId)}/playlists?app_name=${encodeURIComponent(appName)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`;
+    res = await fetch(url);
+  }
+  if (!res.ok) throw new Error(`Audius collections fetch failed: ${res.status}`);
+  const json = await res.json();
+  const items = json?.data || json;
+  return Array.isArray(items) ? items : [];
+}
+
+export async function getAllCollectionsForUserId(userId, appName) {
+  const pageSize = 50;
+  let offset = 0;
+  const all = [];
+  while (true) {
+    const items = await getCollectionsForUserId(userId, appName, pageSize, offset);
+    if (!items.length) break;
+    all.push(...items);
+    if (items.length < pageSize) break;
+    offset += items.length;
+  }
+  return all;
+}
+
+export async function getPlaylistsForUserId(userId, appName) {
+  const all = await getAllCollectionsForUserId(userId, appName);
+  return all.filter(c => !c.is_album);
+}
+
+export async function getAlbumsForUserId(userId, appName) {
+  const all = await getAllCollectionsForUserId(userId, appName);
+  return all.filter(c => c.is_album);
+}
+
