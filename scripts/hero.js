@@ -230,6 +230,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // --- Simple hash router: show/hide content sections without reloading ---
   const pageIds = ['whoami','web3-agentic','music-art','contact'];
   const pages = pageIds.map(id => document.getElementById(id)).filter(Boolean);
+  const closeBtn = document.getElementById('page-close');
 
   function setActivePage(id) {
     const isPage = pageIds.includes(id);
@@ -238,9 +239,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     } else {
       document.body.classList.remove('page-mode');
     }
+    // Toggle page visibility
     pages.forEach((el) => el?.classList.toggle('is-active', el.id === id));
+    // Update nav highlight
+    const navLinks = Array.from(document.querySelectorAll('.player__nav a.navbtn'));
+    navLinks.forEach((a) => {
+      const href = a.getAttribute('href') || '';
+      const target = href.startsWith('#') ? href.slice(1) : '';
+      a.classList.toggle('is-active', target === id && isPage);
+    });
+    // Scroll to top when entering a page
     if (isPage) {
-      // ensure viewport top; player is fixed so it stays visible
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
     }
   }
@@ -261,6 +270,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (pageIds.includes(id)) {
       if (location.hash !== `#${id}`) location.hash = `#${id}`;
       else updateRouteFromHash();
+    }
+  });
+
+  // Close button handler
+  closeBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    try {
+      history.pushState('', document.title, window.location.pathname + window.location.search);
+      updateRouteFromHash();
+    } catch {
+      location.hash = '';
     }
   });
 
