@@ -10,6 +10,12 @@ export function initDraggablePlayer(container) {
       <button class="btn" id="btn-stop" aria-label="Stop">Stop</button>
       <span class="time" id="time">0:00</span>
     </div>
+    <nav class="player__nav" aria-label="Quick sections">
+      <a class="navbtn" href="#whoami">Who am I</a>
+      <a class="navbtn" href="#web3-agentic">Web3 & Agentic</a>
+      <a class="navbtn" href="#music-art">Music/Art</a>
+      <a class="navbtn" href="#contact">Contact</a>
+    </nav>
     <audio id="audio" preload="none" crossorigin="anonymous"></audio>
   `;
 
