@@ -157,3 +157,33 @@ export async function getAlbumsForUserId(userId, appName) {
   return all.filter(c => c.is_album);
 }
 
+// Fetch a playlist/album by id
+export async function getPlaylistById(playlistId, appName) {
+  let base = await pickDiscoveryNode();
+  let url = `${base}/v1/playlists/${encodeURIComponent(playlistId)}?app_name=${encodeURIComponent(appName)}`;
+  let res = await fetch(url);
+  if (!res.ok) {
+    base = await pickDiscoveryNode();
+    url = `${base}/v1/playlists/${encodeURIComponent(playlistId)}?app_name=${encodeURIComponent(appName)}`;
+    res = await fetch(url);
+  }
+  if (!res.ok) throw new Error(`Audius playlist fetch failed: ${res.status}`);
+  const json = await res.json();
+  return json?.data || json;
+}
+
+// Fetch a track by id
+export async function getTrackById(trackId, appName) {
+  let base = await pickDiscoveryNode();
+  let url = `${base}/v1/tracks/${encodeURIComponent(trackId)}?app_name=${encodeURIComponent(appName)}`;
+  let res = await fetch(url);
+  if (!res.ok) {
+    base = await pickDiscoveryNode();
+    url = `${base}/v1/tracks/${encodeURIComponent(trackId)}?app_name=${encodeURIComponent(appName)}`;
+    res = await fetch(url);
+  }
+  if (!res.ok) throw new Error(`Audius track fetch failed: ${res.status}`);
+  const json = await res.json();
+  return json?.data || json;
+}
+

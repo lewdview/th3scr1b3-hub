@@ -1,7 +1,7 @@
 import { initDraggablePlayer } from './draggablePlayer.js';
 import { initWaveform } from './waveform.js';
 import { initBackdropVis } from './backdropVis.js';
-import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getAllTracksForUserId, getAllCollectionsForUserId } from './audius.js';
+import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getAllTracksForUserId, getAllCollectionsForUserId, getPlaylistById, getTrackById } from './audius.js';
 
 const APP_NAME = 'th3scr1b3-music-hub';
 // Set your Audius handle here. If this handle doesn't exist, the UI will show placeholders.
@@ -224,6 +224,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       // allow default link open and also play
       if (track.streamUrl) player.setTrack(track);
     });
+    // Autoplay-on-first-gesture fallback if blocked
+    ensureAutoplayOnFirstGesture(player.getAudio());
   } else {
     // placeholders and helpful messaging
     player.setTrack({ title: `Audius: no tracks found or handle not found (@${AUDIUS_HANDLE})`, streamUrl: '' });
@@ -239,37 +241,110 @@ window.addEventListener('DOMContentLoaded', async () => {
   centerCanvasToContainer(canvas, document.querySelector('.hero'));
   
   // --- Simple hash router: show/hide content sections without reloading ---
-  const pageIds = ['whoami','web3-agentic','music-art','contact'];
-  const pages = pageIds.map(id => document.getElementById(id)).filter(Boolean);
+  const staticPageIds = ['whoami','web3-agentic','music-art','contact'];
+  const pages = staticPageIds.map(id => document.getElementById(id)).filter(Boolean);
+  const collectionPage = document.getElementById('collection');
+  const collectionTitle = document.getElementById('collection-title');
+  const collectionBody = document.getElementById('collection-body');
   const closeBtn = document.getElementById('page-close');
 
-  function setActivePage(id) {
-    const isPage = pageIds.includes(id);
-    if (isPage) {
-      document.body.classList.add('page-mode');
-    } else {
-      document.body.classList.remove('page-mode');
-    }
-    // Toggle page visibility
-    pages.forEach((el) => el?.classList.toggle('is-active', el.id === id));
+  function parseHash() {
+    const raw = (location.hash || '').replace('#','').trim();
+    if (!raw) return { kind: 'home' };
+    if (staticPageIds.includes(raw)) return { kind: 'page', id: raw };
+    const m = raw.match(/^(album|playlist)-(.+)$/);
+    if (m) return { kind: 'collection', ctype: m[1], id: m[2] };
+    return { kind: 'home' };
+  }
+
+  function setActivePageFromState(state) {
+    const isStatic = state.kind === 'page';
+    const isCollection = state.kind === 'collection';
+    if (isStatic || isCollection) document.body.classList.add('page-mode'); else document.body.classList.remove('page-mode');
+
+    // Toggle static pages
+    pages.forEach((el) => el?.classList.toggle('is-active', isStatic && el.id === state.id));
+    // Toggle collection page
+    if (collectionPage) collectionPage.classList.toggle('is-active', isCollection);
+
     // Update nav highlight
     const navLinks = Array.from(document.querySelectorAll('.player__nav a.navbtn'));
     navLinks.forEach((a) => {
       const href = a.getAttribute('href') || '';
       const target = href.startsWith('#') ? href.slice(1) : '';
-      const active = (target === id && isPage);
+      const active = (isStatic && target === state.id);
       a.classList.toggle('is-active', active);
       if (!active) { try { a.style.boxShadow = ''; } catch {} }
     });
+
     // Scroll to top when entering a page
-    if (isPage) {
+    if (isStatic || isCollection) {
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
+    }
+
+    // Render collection if needed
+    if (isCollection) {
+      renderCollection(state.ctype, state.id).catch((err) => {
+        if (collectionTitle) collectionTitle.textContent = 'COLLECTION';
+        if (collectionBody) collectionBody.innerHTML = '<div class="placeholder">Failed to load collection.</div>';
+        console.warn('Collection render failed', err);
+      });
     }
   }
 
+  async function renderCollection(ctype, id) {
+    if (!collectionTitle || !collectionBody) return;
+    collectionTitle.textContent = (ctype === 'album') ? 'ALBUM' : 'PLAYLIST';
+    collectionBody.innerHTML = '<div class="placeholder">Loading…</div>';
+    const pl = await getPlaylistById(id, APP_NAME);
+    const title = pl.playlist_name || pl.name || (ctype === 'album' ? 'Album' : 'Playlist');
+    if (collectionTitle) collectionTitle.textContent = `${collectionTitle.textContent} — ${title}`;
+    // Extract track ids
+    const entries = (pl.playlist_contents?.track_ids) || (pl.playlist_contents?.tracks) || [];
+    const ids = entries.map(e => e.track_id || e.trackId || e.id).filter(Boolean);
+    // Fetch track metadata (limit concurrency)
+    const batch = async (arr, n, fn) => {
+      const out = []; let i=0;
+      while (i < arr.length) {
+        const slice = arr.slice(i, i+n);
+        const res = await Promise.all(slice.map(fn));
+        out.push(...res);
+        i += n;
+      }
+      return out;
+    };
+    const tracks = await batch(ids, 4, (tid) => getTrackById(tid, APP_NAME).catch(() => null));
+    const valid = tracks.filter(Boolean);
+    // Render list
+    const frag = document.createDocumentFragment();
+    valid.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'tile tile--track';
+      const art = document.createElement('div'); art.className = 'tile__art';
+      const img = document.createElement('img'); img.src = getArtworkUrl(t, '150x150') || getArtworkUrl(t, '480x480') || ''; img.alt = `${t.title||'Track'} cover`; art.appendChild(img);
+      const info = document.createElement('div'); info.className = 'tile__info';
+      const titleEl = document.createElement('div'); titleEl.className = 'tile__title'; titleEl.textContent = t.title || 'Untitled';
+      const meta = document.createElement('div'); meta.className = 'tile__meta'; meta.textContent = 'Track';
+      const btn = document.createElement('button'); btn.className = 'tile__play'; btn.textContent = 'Play'; btn.setAttribute('aria-label', `Play ${t.title||'track'}`);
+      btn.addEventListener('click', async () => {
+        try {
+          const url = await getStreamUrlForTrack({ id: t.id || t.track_id || t.trackId }, APP_NAME);
+          const artworkUrl = getArtworkUrl(t, '150x150') || getArtworkUrl(t, '480x480') || '';
+          player.setTrack({ title: t.title || 'Untitled', streamUrl: url, permalink: t.permalink || '#', artworkUrl });
+          if (artworkUrl) updateVisualizerPaletteFromArtwork(artworkUrl, t.title||'');
+        } catch (err) { console.warn('Play from collection failed', err); }
+      });
+      info.appendChild(titleEl); info.appendChild(meta); info.appendChild(btn);
+      row.appendChild(art); row.appendChild(info);
+      frag.appendChild(row);
+    });
+    collectionBody.innerHTML = '';
+    collectionBody.appendChild(frag);
+  }
+
   function updateRouteFromHash() {
-    const id = (location.hash || '').replace('#','').trim();
-    setActivePage(id);
+    const state = parseHash();
+    setActivePageFromState(state);
   }
 
   // Intercept clicks on player nav to avoid default jump scrolling
@@ -280,7 +355,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!href.startsWith('#')) return;
     e.preventDefault();
     const id = href.replace('#','');
-    if (pageIds.includes(id)) {
+    if (staticPageIds.includes(id)) {
       if (location.hash !== `#${id}`) location.hash = `#${id}`;
       else updateRouteFromHash();
     }
@@ -342,6 +417,23 @@ window.addEventListener('DOMContentLoaded', async () => {
   updateRouteFromHash();
   
 });
+
+function ensureAutoplayOnFirstGesture(audioEl) {
+  try {
+    if (!audioEl) return;
+    // If already playing or not paused, nothing to do
+    if (!audioEl.paused) return;
+    const tryPlay = () => { audioEl.play().catch(() => {}); cleanup(); };
+    const cleanup = () => {
+      window.removeEventListener('pointerdown', tryPlay);
+      window.removeEventListener('keydown', tryPlay);
+      window.removeEventListener('touchstart', tryPlay);
+    };
+    window.addEventListener('pointerdown', tryPlay, { once: true });
+    window.addEventListener('keydown', tryPlay, { once: true });
+    window.addEventListener('touchstart', tryPlay, { once: true, passive: true });
+  } catch {}
+}
 
 async function updateVisualizerPaletteFromArtwork(url, seed) {
   // Try to derive palette from artwork; fallback to hash-based
@@ -751,9 +843,10 @@ async function renderTracksGrid(container, handle, player) {
         } catch (err) {
           console.warn('Failed to play track', err);
         }
-      } else {
-        // Open album/playlist in a new tab
-        try { window.open(item.permalink || '#', '_blank', 'noopener'); } catch {}
+      } else if (type === 'album' || type === 'playlist') {
+        // Navigate internally to collection page
+        const hash = `${type}-${item.id}`;
+        if (location.hash !== `#${hash}`) location.hash = `#${hash}`; else updateRouteFromHash();
       }
     });
   } catch (err) {
