@@ -47,11 +47,11 @@
     transition: opacity 240ms ease;
   }
   #backdrop-vis {
-    position: absolute;
+    position: fixed; /* persist across pages */
     inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1; /* behind the waveform, above stats-bg */
+    width: 100vw;
+    height: 100vh;
+    z-index: 0; /* below content, above body background */
     pointer-events: none;
     opacity: 0;
     transition: opacity 600ms ease;
@@ -548,13 +548,37 @@
   .spacer { height: 24vh; }
   .placeholder { opacity: 0.75; font-style: italic; }
 
+  /* Page-mode: show only selected page; hide hero chrome and other sections */
+  body.page-mode .section,
+  body.page-mode .spacer { display: none !important; }
+  body.page-mode .hero #brand,
+  body.page-mode .hero #latest-song,
+  body.page-mode .hero .section-label,
+  body.page-mode .hero #tracks,
+  body.page-mode .hero #tracks-left,
+  body.page-mode .hero #tracks-right,
+  body.page-mode .hero #tracks-toggle,
+  body.page-mode .hero #tracks-shuffle,
+  body.page-mode .hero #stats,
+  body.page-mode .hero #stats-bg,
+  body.page-mode .hero #energy-wave,
+  body.page-mode .hero #vis-controls { display: none !important; }
+  /* Keep the fixed player and fixed #backdrop-vis visible */
+
   /* Standard content pages */
   .page {
     position: relative;
+    display: none; /* hidden until activated */
+    min-height: 100vh;
     padding: 80px 24px;
     max-width: 1100px;
     margin: 0 auto;
+    background: rgba(0,0,0,0.8); /* readable overlay */
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
   }
+  .page.is-active { display: block; }
   .page__title {
     font-weight: 900;
     letter-spacing: 0.06em;
@@ -565,7 +589,7 @@
     background-clip: text;
     color: transparent;
   }
-  .page__body { margin-top: 12px; opacity: 0.92; }
+  .page__body { margin-top: 12px; opacity: 0.96; }
 
   /* Player hint */
   .player__hint {

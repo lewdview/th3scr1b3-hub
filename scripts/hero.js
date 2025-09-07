@@ -227,6 +227,47 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Keep canvas synced to container size
   centerCanvasToContainer(canvas, document.querySelector('.hero'));
   
+  // --- Simple hash router: show/hide content sections without reloading ---
+  const pageIds = ['whoami','web3-agentic','music-art','contact'];
+  const pages = pageIds.map(id => document.getElementById(id)).filter(Boolean);
+
+  function setActivePage(id) {
+    const isPage = pageIds.includes(id);
+    if (isPage) {
+      document.body.classList.add('page-mode');
+    } else {
+      document.body.classList.remove('page-mode');
+    }
+    pages.forEach((el) => el?.classList.toggle('is-active', el.id === id));
+    if (isPage) {
+      // ensure viewport top; player is fixed so it stays visible
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
+    }
+  }
+
+  function updateRouteFromHash() {
+    const id = (location.hash || '').replace('#','').trim();
+    setActivePage(id);
+  }
+
+  // Intercept clicks on player nav to avoid default jump scrolling
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('.player__nav a.navbtn');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (!href.startsWith('#')) return;
+    e.preventDefault();
+    const id = href.replace('#','');
+    if (pageIds.includes(id)) {
+      if (location.hash !== `#${id}`) location.hash = `#${id}`;
+      else updateRouteFromHash();
+    }
+  });
+
+  window.addEventListener('hashchange', updateRouteFromHash);
+  // Initialize on first load
+  updateRouteFromHash();
+  
 });
 
 async function updateVisualizerPaletteFromArtwork(url, seed) {
