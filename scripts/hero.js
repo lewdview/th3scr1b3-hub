@@ -96,6 +96,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       brandEl.style.setProperty('--brand-glow1', a1);
       brandEl.style.setProperty('--brand-glow2', a2);
 
+      // Pulse the active nav button glow with audio energy
+      try {
+        const navActive = document.querySelector('.player__nav .navbtn.is-active');
+        if (navActive) {
+          const c1 = Math.max(0.15, Math.min(0.9, 0.25 + e * 0.35));
+          const blur1 = Math.round(16 + e * 20);
+          const blur2 = Math.round(28 + e * 22);
+          navActive.style.boxShadow = `inset 0 0 0 1px rgba(0,209,255,0.55), 0 0 ${blur1}px rgba(0,209,255,${c1}), 0 0 ${blur2}px rgba(255,230,0,${0.12 + e * 0.20})`;
+        }
+      } catch {}
+
       // Boost background stats a bit on beats
       if (bands.beat && statsBgEl) {
         const now = performance.now();
@@ -246,7 +257,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     navLinks.forEach((a) => {
       const href = a.getAttribute('href') || '';
       const target = href.startsWith('#') ? href.slice(1) : '';
-      a.classList.toggle('is-active', target === id && isPage);
+      const active = (target === id && isPage);
+      a.classList.toggle('is-active', active);
+      if (!active) { try { a.style.boxShadow = ''; } catch {} }
     });
     // Scroll to top when entering a page
     if (isPage) {
@@ -285,6 +298,46 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('hashchange', updateRouteFromHash);
+
+  // Keyboard shortcuts: 'g' then 1..4 to open pages, ESC to close page-mode
+  let navChord = false;
+  let navChordTimer = 0;
+  function resetChord() { navChord = false; clearTimeout(navChordTimer); }
+  document.addEventListener('keydown', (e) => {
+    if (!e || e.repeat) return;
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+    const key = e.key;
+    if (key === 'g' || key === 'G') {
+      navChord = true;
+      clearTimeout(navChordTimer);
+      navChordTimer = setTimeout(() => { navChord = false; }, 1800);
+      return;
+    }
+    if (key === 'Escape') {
+      // Exit page mode
+      try {
+        if (document.body.classList.contains('page-mode')) {
+          e.preventDefault();
+          history.pushState('', document.title, window.location.pathname + window.location.search);
+          updateRouteFromHash();
+        }
+      } catch {
+        location.hash = '';
+      }
+      return;
+    }
+    if (navChord && (key >= '1' && key <= '4')) {
+      const idx = parseInt(key, 10) - 1;
+      const id = pageIds[idx];
+      if (id) {
+        e.preventDefault();
+        if (location.hash !== `#${id}`) location.hash = `#${id}`; else updateRouteFromHash();
+      }
+      resetChord();
+    }
+  });
+
   // Initialize on first load
   updateRouteFromHash();
   

@@ -569,6 +569,8 @@
   body.page-mode .hero #stats-bg,
   body.page-mode .hero #energy-wave,
   body.page-mode .hero #vis-controls { display: none !important; }
+  /* Hide entire hero container in page-mode to avoid scroll offset */
+  body.page-mode .hero { display: none !important; }
   /* Keep the fixed player and fixed #backdrop-vis visible */
 
   /* Page close button */
