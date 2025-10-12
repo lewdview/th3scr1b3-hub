@@ -1,0 +1,5 @@
+{
+  "/api/audius/user/route": "app/api/audius/user/route.js",
+  "/page": "app/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js"
+}

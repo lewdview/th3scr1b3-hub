@@ -6,9 +6,16 @@ export function initDraggablePlayer(container) {
     <div class="player__title" id="player-title">Loading…</div>
     <div class="player__progress" id="progress"><div class="player__progress-fill" id="progress-fill"></div></div>
     <div class="player__controls">
+      <button class="btn btn--prev" id="btn-prev" aria-label="Previous track" title="Previous">⏮</button>
       <button class="btn" id="btn-play" aria-label="Play/Pause">Play</button>
       <button class="btn" id="btn-stop" aria-label="Stop">Stop</button>
+      <button class="btn btn--next" id="btn-next" aria-label="Next track" title="Next">⏭</button>
+      <button class="btn btn--loop" id="btn-loop" aria-label="Toggle loop" title="Loop off">🔁</button>
       <span class="time" id="time">0:00</span>
+    </div>
+    <div class="player__volume">
+      <button class="btn-icon" id="btn-mute" aria-label="Toggle mute" title="Mute">🔊</button>
+      <input type="range" id="volume-slider" class="player__volume-slider" min="0" max="100" value="100" aria-label="Volume" />
     </div>
     <nav class="player__nav" aria-label="Quick sections">
       <a class="navbtn" href="#whoami">Who am I</a>
@@ -23,6 +30,11 @@ export function initDraggablePlayer(container) {
     audio: container.querySelector('#audio'),
     btnPlay: container.querySelector('#btn-play'),
     btnStop: container.querySelector('#btn-stop'),
+    btnPrev: container.querySelector('#btn-prev'),
+    btnNext: container.querySelector('#btn-next'),
+    btnLoop: container.querySelector('#btn-loop'),
+    btnMute: container.querySelector('#btn-mute'),
+    volumeSlider: container.querySelector('#volume-slider'),
     time: container.querySelector('#time'),
     progress: container.querySelector('#progress'),
     progressFill: container.querySelector('#progress-fill'),
@@ -42,6 +54,9 @@ export function initDraggablePlayer(container) {
     // energy bands/beat detection
     bassEMA: 0,
     lastBeat: 0,
+    // callbacks for queue navigation
+    onPrevious: null,
+    onNext: null,
   };
 
   // Hide art until loaded
@@ -65,6 +80,62 @@ export function initDraggablePlayer(container) {
     state.audio.pause();
     state.audio.currentTime = 0;
   });
+
+  // Queue navigation
+  state.btnPrev?.addEventListener('click', () => {
+    dismissHint();
+    if (state.onPrevious) state.onPrevious();
+  });
+  state.btnNext?.addEventListener('click', () => {
+    dismissHint();
+    if (state.onNext) state.onNext();
+  });
+
+  // Loop toggle
+  state.btnLoop?.addEventListener('click', () => {
+    dismissHint();
+    state.audio.loop = !state.audio.loop;
+    state.btnLoop.style.opacity = state.audio.loop ? '1' : '0.6';
+    state.btnLoop.title = state.audio.loop ? 'Loop on' : 'Loop off';
+  });
+
+  // Volume controls
+  state.volumeSlider?.addEventListener('input', (e) => {
+    const vol = parseFloat(e.target.value) / 100;
+    state.audio.volume = vol;
+    updateMuteIcon();
+    try { localStorage.setItem('th3scr1b3_volume', e.target.value); } catch {}
+  });
+
+  state.btnMute?.addEventListener('click', () => {
+    dismissHint();
+    state.audio.muted = !state.audio.muted;
+    updateMuteIcon();
+  });
+
+  function updateMuteIcon() {
+    if (!state.btnMute) return;
+    if (state.audio.muted || state.audio.volume === 0) {
+      state.btnMute.textContent = '🔇';
+      state.btnMute.title = 'Unmute';
+    } else if (state.audio.volume < 0.5) {
+      state.btnMute.textContent = '🔉';
+      state.btnMute.title = 'Mute';
+    } else {
+      state.btnMute.textContent = '🔊';
+      state.btnMute.title = 'Mute';
+    }
+  }
+
+  // Restore volume from storage
+  try {
+    const savedVol = localStorage.getItem('th3scr1b3_volume');
+    if (savedVol && state.volumeSlider) {
+      state.volumeSlider.value = savedVol;
+      state.audio.volume = parseFloat(savedVol) / 100;
+    }
+  } catch {}
+
   container.addEventListener('click', dismissHint, { once: false });
   container.addEventListener('touchstart', dismissHint, { once: false, passive: true });
 
@@ -282,6 +353,11 @@ export function initDraggablePlayer(container) {
     }
   }
 
-  return { setTrack, getAnchorPoint, getAudio, getEnergy, getEnergyBands, el: container };
+  function setQueueCallbacks(onPrev, onNext) {
+    state.onPrevious = onPrev;
+    state.onNext = onNext;
+  }
+
+  return { setTrack, getAnchorPoint, getAudio, getEnergy, getEnergyBands, setQueueCallbacks, el: container };
 }
 

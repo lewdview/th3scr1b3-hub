@@ -98,6 +98,25 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     vec2 p = (st-0.5) * (0.95-0.08*e);
     return p + 0.5;
   }
+  vec2 vortex(vec2 uv, float t, float e){
+    vec2 p=uv-0.5; float r=length(p)+1e-4; float a=atan(p.y,p.x);
+    float spiral = r*8.0 - t*1.5; a += sin(spiral)*0.4 + e*1.2;
+    r = mix(r, pow(r, 0.7), e); p=vec2(cos(a),sin(a))*r*(0.97-0.06*e);
+    return p+0.5;
+  }
+  vec2 fractal(vec2 uv, float t, float e){
+    vec2 p=uv-0.5; float r=length(p); float a=atan(p.y,p.x);
+    float layers=3.0+floor(e*4.0); for(float i=0.0;i<7.0;i++){
+      if(i>=layers)break; a+=sin(r*12.0-t*1.2+i*0.5)*0.15;
+      r=abs(fract(r*2.0)-0.5);
+    }
+    p=vec2(cos(a),sin(a))*r*(0.96-0.04*e); return p+0.5;
+  }
+  vec2 organic(vec2 uv, float t, float e){
+    vec2 p=uv-0.5; float n1=sin(p.x*6.0+t)*cos(p.y*6.0+t*0.8)*0.12;
+    float n2=sin(p.y*8.0-t*1.2)*cos(p.x*8.0-t*0.6)*0.1;
+    p+=vec2(n1,n2)*(0.5+e*0.8); p*=(0.98-0.03*e); return p+0.5;
+  }
 
   void main(){
     float t=u_time; vec2 uv=v_uv; vec2 coord;
@@ -106,7 +125,10 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
     else if(u_mode==2){ coord = kaleido(uv,t,u_energy); }
     else if(u_mode==3){ coord = ripple(uv,t,u_energy); }
     else if(u_mode==4){ coord = spiral(uv,t,u_energy); }
-    else { coord = grid(uv,t,u_energy); }
+    else if(u_mode==5){ coord = grid(uv,t,u_energy); }
+    else if(u_mode==6){ coord = vortex(uv,t,u_energy); }
+    else if(u_mode==7){ coord = fractal(uv,t,u_energy); }
+    else { coord = organic(uv,t,u_energy); }
 
     vec3 prev = texture(u_prev, coord).rgb;
 
@@ -133,6 +155,14 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
       float gl = line(g, 0.06);
       col = mix(col, vec3(1.0), gl*0.35);
       fb = 0.992; colAmt = 0.80;
+    } else if (u_mode==6) { // vortex: intense spiral energy
+      fb = 0.975; colAmt = 0.92;
+      col *= 0.85 + 0.15*sin(r*10.0 - t*3.0);
+    } else if (u_mode==7) { // fractal: sharp recursive patterns
+      fb = 0.982; col = pow(col, vec3(0.85)); colAmt = 0.88;
+    } else if (u_mode==8) { // organic: fluid natural motion
+      fb = 0.988; colAmt = 0.86;
+      col *= 0.9 + 0.1*sin(t + r*5.0);
     }
 
     // beat pop
@@ -251,7 +281,7 @@ export function initBackdropVis(canvas, { getEnergyBands }) {
 
   function start(){ if(running) return; running=true; startTs=performance.now(); cancelAnimationFrame(raf); raf=requestAnimationFrame(step); }
   function stop(){ running=false; cancelAnimationFrame(raf); }
-  function setMode(m){ mode=((m|0)+6)%6; }
+  function setMode(m){ mode=((m|0)+9)%9; }
   function nextMode(){ setMode(mode+1); }
   function getMode(){ return mode; }
   function setPalette(a,b,c,d){

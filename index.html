@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>th3scr1b3 — Music Hub</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles/base.css" />
   </head>
   <body>
@@ -16,12 +17,15 @@
       <div id="vis-controls" class="vis-controls" aria-label="Visualizer controls" role="group">
         <button class="vis-controls__btn vis-controls__btn--prev" type="button" aria-label="Previous mode">‹</button>
         <div class="vis-controls__modes" aria-hidden="false">
-          <button class="vis-controls__mode" data-mode="1" type="button" aria-label="Mode 1">1</button>
-          <button class="vis-controls__mode" data-mode="2" type="button" aria-label="Mode 2">2</button>
-          <button class="vis-controls__mode" data-mode="3" type="button" aria-label="Mode 3">3</button>
-          <button class="vis-controls__mode" data-mode="4" type="button" aria-label="Mode 4">4</button>
-          <button class="vis-controls__mode" data-mode="5" type="button" aria-label="Mode 5">5</button>
-          <button class="vis-controls__mode" data-mode="6" type="button" aria-label="Mode 6">6</button>
+          <button class="vis-controls__mode" data-mode="1" type="button" aria-label="Mode 1" title="Plasma">1</button>
+          <button class="vis-controls__mode" data-mode="2" type="button" aria-label="Mode 2" title="Tunnel">2</button>
+          <button class="vis-controls__mode" data-mode="3" type="button" aria-label="Mode 3" title="Kaleidoscope">3</button>
+          <button class="vis-controls__mode" data-mode="4" type="button" aria-label="Mode 4" title="Ripple">4</button>
+          <button class="vis-controls__mode" data-mode="5" type="button" aria-label="Mode 5" title="Spiral">5</button>
+          <button class="vis-controls__mode" data-mode="6" type="button" aria-label="Mode 6" title="Grid">6</button>
+          <button class="vis-controls__mode" data-mode="7" type="button" aria-label="Mode 7" title="Vortex">7</button>
+          <button class="vis-controls__mode" data-mode="8" type="button" aria-label="Mode 8" title="Fractal">8</button>
+          <button class="vis-controls__mode" data-mode="9" type="button" aria-label="Mode 9" title="Organic">9</button>
         </div>
         <button class="vis-controls__btn vis-controls__btn--next" type="button" aria-label="Next mode">›</button>
       </div>
@@ -46,6 +50,29 @@
           <path d="M32 6L6 58h52L32 6zm0 16l12.5 24H19.5L32 22z" fill="url(#audg)"/>
         </svg>
         <span class="label__text">Audius</span>
+      </div>
+
+      <!-- Tracks toolbar with search and sorting -->
+      <div id="tracks-toolbar" class="tracks-toolbar" aria-label="Tracks controls">
+        <div class="tracks-toolbar__search">
+          <input 
+            type="search" 
+            id="tracks-search" 
+            class="tracks-toolbar__input" 
+            placeholder="Search tracks..." 
+            aria-label="Search tracks"
+            autocomplete="off"
+          />
+        </div>
+        <div class="tracks-toolbar__controls">
+          <select id="tracks-sort" class="tracks-toolbar__select" aria-label="Sort tracks">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="plays">Most Plays</option>
+            <option value="title">A-Z</option>
+          </select>
+          <button id="tracks-favorites" class="tracks-toolbar__btn" aria-label="Show favorites" title="Favorites">♥</button>
+        </div>
       </div>
 
       <div id="tracks" class="tracks" aria-label="Your tracks"></div>

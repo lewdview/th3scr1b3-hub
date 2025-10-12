@@ -2,6 +2,8 @@ import { initDraggablePlayer } from './draggablePlayer.js';
 import { initWaveform } from './waveform.js';
 import { initBackdropVis } from './backdropVis.js';
 import { getUserByHandle, getLatestTrackForUserId, getStreamUrlForTrack, getArtworkUrl, getAllTracksForUserId, getAllCollectionsForUserId, getPlaylistById, getTrackById } from './audius.js';
+import { createSearchFilter, createFavoritesManager, createSorter, createNotificationSystem, createKeyboardShortcutsModal, createSkeletonLoader, createQueueManager } from './utilities.js';
+import { renderYouTubeGrid } from './youtube.js';
 
 const APP_NAME = 'th3scr1b3-music-hub';
 // Set your Audius handle here. If this handle doesn't exist, the UI will show placeholders.
@@ -39,6 +41,15 @@ function centerCanvasToContainer(canvas, container) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // Initialize utility systems
+  const notify = createNotificationSystem();
+  const favorites = createFavoritesManager();
+  const searchFilter = createSearchFilter();
+  const sorter = createSorter();
+  const keyboardModal = createKeyboardShortcutsModal();
+  const skeleton = createSkeletonLoader();
+  const queue = createQueueManager();
+
   const playerEl = $('floating-player');
   const brandEl = $('brand');
   const latestEl = $('latest-song');
@@ -56,7 +67,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   let backdropActivated = false;
   let shortcutsBound = false;
   let controlsBound = false;
-  let pendingPalette = null;
 
   // Waveform anchors compute from three elements
   const wf = initWaveform(canvas, () => {
@@ -235,7 +245,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Load tracks grid
-  await renderTracksGrid(tracksEl, AUDIUS_HANDLE, player);
+  await renderTracksGrid(tracksEl, AUDIUS_HANDLE, player, skeleton, notify, favorites, searchFilter, sorter);
+
+  // Initialize YouTube section
+  const youtubeContainer = document.getElementById('youtube');
+  if (youtubeContainer) {
+    renderYouTubeGrid(youtubeContainer);
+  }
 
   // Keep canvas synced to container size
   centerCanvasToContainer(canvas, document.querySelector('.hero'));
@@ -374,7 +390,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   window.addEventListener('hashchange', updateRouteFromHash);
 
-  // Keyboard shortcuts: 'g' then 1..4 to open pages, ESC to close page-mode
+  // Keyboard shortcuts: 'g' then 1..4 to open pages, ESC to close page-mode, ? for help
   let navChord = false;
   let navChordTimer = 0;
   function resetChord() { navChord = false; clearTimeout(navChordTimer); }
@@ -383,6 +399,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     const active = document.activeElement;
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
     const key = e.key;
+    // Help modal
+    if (key === '?') {
+      e.preventDefault();
+      keyboardModal.toggle();
+      return;
+    }
+    // Search focus
+    if (key === '/' || (e.ctrlKey && key === 'f')) {
+      e.preventDefault();
+      const searchInput = document.getElementById('tracks-search');
+      if (searchInput) searchInput.focus();
+      return;
+    }
     if (key === 'g' || key === 'G') {
       navChord = true;
       clearTimeout(navChordTimer);
@@ -404,7 +433,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     if (navChord && (key >= '1' && key <= '4')) {
       const idx = parseInt(key, 10) - 1;
-      const id = pageIds[idx];
+      const id = staticPageIds[idx];
       if (id) {
         e.preventDefault();
         if (location.hash !== `#${id}`) location.hash = `#${id}`; else updateRouteFromHash();
@@ -434,6 +463,9 @@ function ensureAutoplayOnFirstGesture(audioEl) {
     window.addEventListener('touchstart', tryPlay, { once: true, passive: true });
   } catch {}
 }
+
+// Store pending palette at module scope
+let pendingPalette = null;
 
 async function updateVisualizerPaletteFromArtwork(url, seed) {
   // Try to derive palette from artwork; fallback to hash-based
@@ -493,7 +525,7 @@ function initVisControls(vis) {
   const nextBtn = root.querySelector('.vis-controls__btn--next');
 
   const setActive = (mode) => {
-    const human = (mode % 6) + 1;
+    const human = (mode % 9) + 1;
     modeBtns.forEach((b) => b.classList.toggle('is-active', Number(b.dataset.mode) === human));
   };
 
@@ -511,7 +543,7 @@ function initVisControls(vis) {
   });
 
   prevBtn?.addEventListener('click', () => {
-    vis.setMode((vis.getMode() - 1 + 6) % 6);
+    vis.setMode((vis.getMode() - 1 + 9) % 9);
     const m = vis.getMode();
     setActive(m);
     try { localStorage.setItem('th3scr1b3_vis_mode', String(m)); } catch {}
@@ -549,7 +581,7 @@ function bindVisualizerShortcuts() {
     if (key === 'v') {
       vis.nextMode();
       try { localStorage.setItem('th3scr1b3_vis_mode', String(vis.getMode())); } catch {}
-    } else if (key === '1' || key === '2' || key === '3' || key === '4' || key === '5' || key === '6') {
+    } else if (key >= '1' && key <= '9') {
       const mode = (parseInt(key, 10) - 1) | 0;
       vis.setMode(mode);
       try { localStorage.setItem('th3scr1b3_vis_mode', String(mode)); } catch {}
@@ -574,12 +606,19 @@ function formatTime(seconds) {
   return `${m}:${r}`;
 }
 
-async function renderTracksGrid(container, handle, player) {
+async function renderTracksGrid(container, handle, player, skeleton, notify, favorites, searchFilter, sorter) {
+  // Show loading skeletons
   container.innerHTML = '';
+  container.appendChild(skeleton.createSkeleton(10));
+  
   try {
     const user = await getUserByHandle(handle, APP_NAME);
     const userId = user?.id || user?.data?.id;
-    if (!userId) throw new Error('User not found');
+    if (!userId) {
+      container.innerHTML = '<div class="placeholder">User not found</div>';
+      notify.error('Could not find user on Audius', 4000);
+      return;
+    }
     const [tracks, collections] = await Promise.all([
       getAllTracksForUserId(userId, APP_NAME),
       getAllCollectionsForUserId(userId, APP_NAME)
@@ -673,6 +712,21 @@ async function renderTracksGrid(container, handle, player) {
         tile.dataset.type = type;
         if (item.id) tile.dataset.id = String(item.id);
 
+        // Favorite heart icon
+        const heart = document.createElement('button');
+        heart.className = 'tile__favorite';
+        heart.textContent = '♥';
+        heart.setAttribute('aria-label', 'Toggle favorite');
+        if (favorites.has(item.id)) {
+          heart.classList.add('is-favorited');
+        }
+        heart.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isFav = favorites.toggle(item.id);
+          heart.classList.toggle('is-favorited', isFav);
+          notify.success(isFav ? `Added ${item.title} to favorites` : `Removed ${item.title} from favorites`, 2000);
+        });
+
         const art = document.createElement('div');
         art.className = 'tile__art';
         if (item.artworkUrl) {
@@ -712,6 +766,7 @@ async function renderTracksGrid(container, handle, player) {
         info.appendChild(meta);
         info.appendChild(btn);
 
+        tile.appendChild(heart);
         tile.appendChild(art);
         tile.appendChild(info);
         frag.appendChild(tile);
@@ -824,6 +879,72 @@ async function renderTracksGrid(container, handle, player) {
       };
     }
 
+    // Search, sort, and favorites integration
+    const searchInput = document.getElementById('tracks-search');
+    const sortSelect = document.getElementById('tracks-sort');
+    const favoritesBtn = document.getElementById('tracks-favorites');
+    let showingFavoritesOnly = false;
+    let baseList = list; // keep reference to full list
+
+    function applyFilters() {
+      let filtered = [...trackItems]; // always start from track items
+      
+      // Apply favorites filter first
+      if (showingFavoritesOnly) {
+        filtered = filtered.filter(item => favorites.has(item.id));
+      }
+      
+      // Apply search
+      const query = searchInput?.value || '';
+      if (query.trim()) {
+        const q = query.toLowerCase();
+        filtered = filtered.filter(item => {
+          const title = (item.title || '').toLowerCase();
+          return title.includes(q);
+        });
+      }
+      
+      // Apply sorting
+      const sortMode = sortSelect?.value || 'newest';
+      if (sortMode === 'newest' || sortMode === 'oldest' || sortMode === 'plays' || sortMode === 'title') {
+        filtered = sorter.sort(filtered, sortMode);
+      } else if (sortMode === 'shuffle') {
+        shuffle(filtered);
+      }
+      
+      // Add albums/playlists if in mixed mode and not showing favorites
+      if (mode === 'mixed' && !showingFavoritesOnly) {
+        const extras = [albumItem, playlistItem].filter(Boolean);
+        filtered = [...filtered, ...extras];
+      }
+      
+      list = filtered;
+      buildTiles();
+      container.scrollTo({ left: 0, behavior: 'smooth' });
+      updateNav();
+    }
+
+    if (searchInput) {
+      const debouncedSearch = searchFilter.debounce(applyFilters, 300);
+      searchInput.addEventListener('input', debouncedSearch);
+    }
+
+    if (sortSelect) {
+      sortSelect.addEventListener('change', applyFilters);
+    }
+
+    if (favoritesBtn) {
+      favoritesBtn.addEventListener('click', () => {
+        showingFavoritesOnly = !showingFavoritesOnly;
+        favoritesBtn.classList.toggle('is-active', showingFavoritesOnly);
+        favoritesBtn.setAttribute('aria-pressed', showingFavoritesOnly ? 'true' : 'false');
+        applyFilters();
+        if (showingFavoritesOnly) {
+          notify.info(`Showing ${favorites.size()} favorites`, 2000);
+        }
+      });
+    }
+
     // Delegate play actions
     container.addEventListener('click', async (e) => {
       const btn = e.target.closest('.tile__play');
@@ -851,7 +972,8 @@ async function renderTracksGrid(container, handle, player) {
     });
   } catch (err) {
     console.warn('Tracks grid failed:', err);
-    container.textContent = 'Tracks unavailable';
+    container.innerHTML = '<div class="placeholder">Failed to load tracks. Please try refreshing the page.</div>';
+    notify.error('Failed to load tracks from Audius', 5000);
   }
 }
 
